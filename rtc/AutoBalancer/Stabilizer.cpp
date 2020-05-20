@@ -1234,21 +1234,17 @@ double Stabilizer::vlimit(double value, double llimit_value, double ulimit_value
 
 hrp::Vector3 Stabilizer::vlimit(const hrp::Vector3& value, double llimit_value, double ulimit_value, bool print)
 {
+  if (print) std::cerr << "vlimit_start" << std::endl;
   hrp::Vector3 ret;
   for (size_t i = 0; i < 3; i++) {
     if (value(i) > ulimit_value) {
       ret(i) = ulimit_value;
-      if (print) std::cerr << "ul" << std::endl;
     } else if (value(i) < llimit_value) {
       ret(i) = llimit_value;
-      if (print) std::cerr << "ll" << std::endl;
     } else {
       ret(i) = value(i);
-      if (print) std::cerr << "raw" << std::endl;
     }
-  }
-  if (print) {
-    std::cerr << "vlimit now" << std::endl;
+    if (print) std::cerr << "vlimit_print " << value(i) << " " << ret(i) << std::endl;
   }
   return ret;
 }
@@ -1270,21 +1266,17 @@ hrp::Vector3 Stabilizer::vlimit(const hrp::Vector3& value, const hrp::Vector3& l
 
 hrp::Vector3 Stabilizer::vlimit(const hrp::Vector3& value, const hrp::Vector3& llimit_value, const hrp::Vector3& ulimit_value, bool print)
 {
+  if (print) std::cerr << "vlimit_start" << std::endl;
   hrp::Vector3 ret;
   for (size_t i = 0; i < 3; i++) {
     if (value(i) > ulimit_value(i)) {
       ret(i) = ulimit_value(i);
-      if (print) std::cerr << "ul" << std::endl;
     } else if (value(i) < llimit_value(i)) {
       ret(i) = llimit_value(i);
-      if (print) std::cerr << "ll" << std::endl;
     } else {
       ret(i) = value(i);
-      if (print) std::cerr << "raw" << std::endl;
     }
-  }
-  if (print) {
-    std::cerr << "vlimit now" << std::endl;
+    if (print) std::cerr << "vlimit_print " << value(i) << " " << ret(i) << std::endl;
   }
   return ret;
 }
@@ -1625,11 +1617,6 @@ void Stabilizer::calcEEForceMomentControl()
       stikp[i].target_ee_diff_p -= foot_origin_rot.transpose() * (target->p + target->R * stikp[i].localp - foot_origin_pos);
       stikp[i].target_ee_diff_r = (foot_origin_rot.transpose() * target->R * stikp[i].localR).transpose() * stikp[i].target_ee_diff_r;
       stikp[i].act_theta = Eigen::AngleAxisd(foot_origin_rot.transpose() * target->R * stikp[i].localR);
-      if (stikp[i].ee_name == "rarm") {
-        std::cerr << "rarm_act" << std::endl;
-        std::cerr << hrp::rpyFromRot(foot_origin_rot) << std::endl;
-        std::cerr << hrp::rpyFromRot(target->R) << std::endl;
-      }
     }
   }
 
@@ -1695,8 +1682,8 @@ void Stabilizer::calcSwingEEModification ()
 {
   for (size_t i = 0; i < stikp.size(); i++) {//stが使っているエンドエフェクタの数
     // Calc compensation values
-    double limit_pos = 50 * 1e-3; // 50[mm] limit
-    double limit_rot = deg2rad(30); // 30[deg] limit
+    double limit_pos = 500 * 1e-3; // 50[mm] limit
+    double limit_rot = deg2rad(50); // 30[deg] limit
     if (ref_contact_states != prev_ref_contact_states) {//両足がついた時に座標系更新->急に変わるからちょっとかいてる
       stikp[i].d_pos_swing = (ref_foot_origin_rot.transpose() * prev_ref_foot_origin_rot) * stikp[i].d_pos_swing;
       stikp[i].d_rpy_swing = (ref_foot_origin_rot.transpose() * prev_ref_foot_origin_rot) * stikp[i].d_rpy_swing;
@@ -1722,10 +1709,11 @@ void Stabilizer::calcSwingEEModification ()
       /* position */ //論文3.94
       {
         hrp::Vector3 tmpdiffp = stikp[i].eefm_swing_pos_spring_gain.cwiseProduct(stikp[i].target_ee_diff_p) * dt + stikp[i].d_pos_swing/*一周忌前の修正量*/;
-        double lvlimit = -50 * 1e-3 * dt, uvlimit = 50 * 1e-3 * dt; // 50 [mm/s]
+        double lvlimit = -50 * 1e-3 * dt, uvlimit = 500 * 1e-3 * dt; // 50 [mm/s]
         hrp::Vector3 limit_by_lvlimit = stikp[i].prev_d_pos_swing + lvlimit * hrp::Vector3::Ones();
         hrp::Vector3 limit_by_uvlimit = stikp[i].prev_d_pos_swing + uvlimit * hrp::Vector3::Ones();
         stikp[i].d_pos_swing = vlimit(vlimit(tmpdiffp, -1 * limit_pos, limit_pos), limit_by_lvlimit, limit_by_uvlimit);
+        //stikp[i].d_pos_swing = tmpdiffp;
       }
       if (stikp[i].ee_name == "rarm") {
         std::cerr << "rot " << std::endl;
@@ -1735,17 +1723,30 @@ void Stabilizer::calcSwingEEModification ()
         Eigen::AngleAxisd prev_omega = stikp[i].omega;
         stikp[i].omega = (stikp[i].ref_theta * stikp[i].act_theta.inverse());
         stikp[i].omega.angle() *= stikp[i].eefm_swing_rot_spring_gain(0) * dt;
+        Eigen::AngleAxisd diff_r = stikp[i].omega;
         stikp[i].omega = stikp[i].omega * prev_omega;
-        hrp::Vector3 tmpdiffr = hrp::rpyFromRot(stikp[i].omega.toRotationMatrix());
-        double lvlimit = deg2rad(-20.0*dt), uvlimit = deg2rad(20.0*dt); // 20 [deg/s]
+        //hrp::Vector3 tmpdiffr = hrp::rpyFromRot(stikp[i].omega.toRotationMatrix());
+        hrp::Vector3 tmpdiffr = hrp::rpyFromRot(diff_r.toRotationMatrix());
+        double lvlimit = deg2rad(-50.0*dt), uvlimit = deg2rad(50.0*dt); // 20 [deg/s]
         hrp::Vector3 limit_by_lvlimit = stikp[i].prev_d_rpy_swing + lvlimit * hrp::Vector3::Ones();
         hrp::Vector3 limit_by_uvlimit = stikp[i].prev_d_rpy_swing + uvlimit * hrp::Vector3::Ones();
-        stikp[i].d_rpy_swing = vlimit(vlimit(tmpdiffr, -1 * limit_rot, limit_rot, true), limit_by_lvlimit, limit_by_uvlimit, true);
         if (stikp[i].ee_name == "rarm") {
+          //stikp[i].d_rpy_swing = vlimit(vlimit(tmpdiffr, -1 * limit_rot, limit_rot, true), limit_by_lvlimit, limit_by_uvlimit, true);
+          stikp[i].d_rpy_swing = tmpdiffr;
+        } else {
+          stikp[i].d_rpy_swing = vlimit(vlimit(tmpdiffr, -1 * limit_rot, limit_rot), limit_by_lvlimit, limit_by_uvlimit);
+        }
+        //stikp[i].d_rpy_swing = tmpdiffr;
+        if (stikp[i].ee_name == "rarm") {
+          std::cerr << "act" << std::endl;
           std::cerr << hrp::rpyFromRot(stikp[i].act_theta.toRotationMatrix()) << std::endl;
-          std::cerr << stikp[i].d_rpy_swing << std::endl;
+          std::cerr << "ref" << std::endl;
+          std::cerr << hrp::rpyFromRot(stikp[i].ref_theta.toRotationMatrix()) << std::endl;
+          std::cerr << "tmpdiffr" << std::endl;
           std::cerr << tmpdiffr << std::endl;
-          if (stikp[i].d_rpy_swing[0] != tmpdiffr[0] && stikp[i].d_rpy_swing[1] != tmpdiffr[1] && stikp[i].d_rpy_swing[2] != tmpdiffr[2]) {
+          std::cerr << "diff" << std::endl;
+          std::cerr << hrp::rpyFromRot(diff_r.toRotationMatrix()) << std::endl;
+          if (stikp[i].d_rpy_swing[0] != tmpdiffr[0] || stikp[i].d_rpy_swing[1] != tmpdiffr[1] || stikp[i].d_rpy_swing[2] != tmpdiffr[2]) {
             std::cerr << "limited!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
           }
         }
