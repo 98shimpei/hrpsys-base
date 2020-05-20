@@ -295,7 +295,9 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
           st->jpe_v.back()->setOptionalWeightVector(optw);
         }
         st->contact_states_index_map.insert(std::pair<std::string, size_t>(ee_name, i));
-        st->is_ik_enable.push_back( (ee_name.find("leg") != std::string::npos ? true : false) ); // Hands ik => disabled, feet ik => enabled, by default
+        //st->is_ik_enable.push_back( (ee_name.find("leg") != std::string::npos ? true : true) ); // Hands ik => disabled, feet ik => enabled, by default
+        st->is_ik_enable.push_back( (ee_name.find("larm") != std::string::npos ? false : true) ); // LARM ik => disabled, others ik => enabled
+        //kokodayo
         st->is_feedback_control_enable.push_back( (ee_name.find("leg") != std::string::npos ? true : false) ); // Hands feedback control => disabled, feet feedback control => enabled, by default
         st->is_zmp_calc_enable.push_back( (ee_name.find("leg") != std::string::npos ? true : false) ); // To zmp calculation, hands are disabled and feet are enabled, by default
         // Fix for toe joint
