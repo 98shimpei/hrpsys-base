@@ -183,9 +183,9 @@ public:
   void calcRUNST();
   void moveBasePosRotForBodyRPYControl ();
   double vlimit(double value, double llimit_value, double ulimit_value);
-  hrp::Vector3 vlimit(const hrp::Vector3& value, double llimit_value, double ulimit_value, bool print = false);
+  hrp::Vector3 vlimit(const hrp::Vector3& value, double llimit_value, double ulimit_value);
   hrp::Vector3 vlimit(const hrp::Vector3& value, const hrp::Vector3& limit_value);
-  hrp::Vector3 vlimit(const hrp::Vector3& value, const hrp::Vector3& llimit_value, const hrp::Vector3& ulimit_value, bool print = false);
+  hrp::Vector3 vlimit(const hrp::Vector3& value, const hrp::Vector3& llimit_value, const hrp::Vector3& ulimit_value);
   void calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot);
   bool calcZMP(hrp::Vector3& ret_zmp, const double zmp_z);
   void calcStateForEmergencySignal();
