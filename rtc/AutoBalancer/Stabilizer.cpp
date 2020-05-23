@@ -28,6 +28,7 @@ typedef coil::Guard<coil::Mutex> Guard;
 #define DEBUGP ((m_debugLevel==1 && loop%200==0) || m_debugLevel > 1 )
 #define DEBUGP2 (loop%10==0)
 
+
 void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
 {
   std::vector<std::pair<hrp::Link*, hrp::Link*> > interlocking_joints;
@@ -821,6 +822,9 @@ void Stabilizer::sync_2_st ()
   for (size_t i = 0; i < stikp.size(); i++) {
     STIKParam& ikp = stikp[i];
     ikp.target_ee_diff_p = hrp::Vector3::Zero();
+    ikp.target_ee_pos = hrp::Vector3::Zero();
+    ikp.target_ee_vel = hrp::Vector3::Zero();
+    ikp.target_ee_acc = hrp::Vector3::Zero();
     ikp.d_pos_swing = ikp.prev_d_pos_swing = hrp::Vector3::Zero();
     ikp.d_rpy_swing = ikp.prev_d_rpy_swing = hrp::Vector3::Zero();
     ikp.target_ee_diff_p_filter->reset(hrp::Vector3::Zero());
@@ -1618,6 +1622,14 @@ void Stabilizer::calcEEForceMomentControl()
     for (size_t i = 0; i < stikp.size(); i++) {
       hrp::Link* target = m_robot->link(stikp[i].target_name);
       stikp[i].target_ee_diff_p -= foot_origin_rot.transpose() * (target->p + target->R * stikp[i].localp - foot_origin_pos);
+      hrp::Vector3 tmp_pos = stikp[i].target_ee_diff_p;
+      if (stikp[i].target_ee_pos == hrp::Vector3::Zero()) {
+        stikp[i].target_ee_pos = tmp_pos;
+      }
+      hrp::Vector3 tmp_vel = (tmp_pos - stikp[i].target_ee_pos) / dt;
+      stikp[i].target_ee_acc = (tmp_vel - stikp[i].target_ee_vel) / dt;
+      stikp[i].target_ee_vel = tmp_vel;
+      stikp[i].target_ee_pos = tmp_pos;
       stikp[i].act_theta = Eigen::AngleAxisd(foot_origin_rot.transpose() * target->R * stikp[i].localR);
     }
   }
@@ -1684,9 +1696,11 @@ void Stabilizer::calcSwingEEModification ()
 {
   for (size_t i = 0; i < stikp.size(); i++) {//stが使っているエンドエフェクタの数
     // Calc compensation values
-    double limit_pos = 50 * 1e-3; // 50[mm] limit
-    double limit_rot = deg2rad(30); // 30[deg] limit
+    double limit_pos = 200 * 1e-3; // 50[mm] limit
+    double limit_rot = deg2rad(90); // 30[deg] limit
+    static int hoge = 5;
     if (ref_contact_states != prev_ref_contact_states) {//両足がついた時に座標系更新->急に変わるからちょっとかいてる
+      hoge = 2;
       stikp[i].d_pos_swing = (ref_foot_origin_rot.transpose() * prev_ref_foot_origin_rot) * stikp[i].d_pos_swing;
       stikp[i].d_rpy_swing = (ref_foot_origin_rot.transpose() * prev_ref_foot_origin_rot) * stikp[i].d_rpy_swing;
       stikp[i].prev_d_pos_swing = (ref_foot_origin_rot.transpose() * prev_ref_foot_origin_rot) * stikp[i].prev_d_pos_swing;
@@ -1707,11 +1721,24 @@ void Stabilizer::calcSwingEEModification ()
     } else if (swing_modification_interpolator[stikp[i].ee_name]->isEmpty()) {
       /* position */ //論文3.94
       {
+        static hrp::Vector3 tmpval = hrp::Vector3::Zero();
         hrp::Vector3 tmpdiffp = stikp[i].eefm_swing_pos_spring_gain.cwiseProduct(stikp[i].target_ee_diff_p) * dt + stikp[i].d_pos_swing/*一周忌前の修正量*/;
-        double lvlimit = -50 * 1e-3 * dt, uvlimit = 50 * 1e-3 * dt; // 50 [mm/s]
+        double lvlimit = -100 * 1e-3 * dt, uvlimit = 100 * 1e-3 * dt; // 50 [mm/s]
         hrp::Vector3 limit_by_lvlimit = stikp[i].prev_d_pos_swing + lvlimit * hrp::Vector3::Ones();
         hrp::Vector3 limit_by_uvlimit = stikp[i].prev_d_pos_swing + uvlimit * hrp::Vector3::Ones();
-        stikp[i].d_pos_swing = vlimit(vlimit(tmpdiffp, -1 * limit_pos, limit_pos), limit_by_lvlimit, limit_by_uvlimit);
+        if (stikp[i].ee_name == "rarm") {
+          if (hoge > 0) {
+            hoge--;
+          } else {
+            //tmpval *= 0.97;
+            //tmpval += stikp[i].target_ee_pos * dt * 0.1;
+            //tmpdiffp += tmpval;
+            tmpdiffp += stikp[i].target_ee_vel * dt * 0.8;
+            stikp[i].d_pos_swing = vlimit(vlimit(tmpdiffp, -1 * limit_pos, limit_pos), limit_by_lvlimit, limit_by_uvlimit);
+          }
+        } else {
+          stikp[i].d_pos_swing = vlimit(vlimit(tmpdiffp, -1 * limit_pos, limit_pos), limit_by_lvlimit, limit_by_uvlimit);
+        }
       }
       /* rotation */
       {
@@ -1720,10 +1747,11 @@ void Stabilizer::calcSwingEEModification ()
         stikp[i].omega.angle() *= stikp[i].eefm_swing_rot_spring_gain(0) * dt;
         stikp[i].omega = stikp[i].omega * prev_omega;
         hrp::Vector3 tmpdiffr = hrp::rpyFromRot(stikp[i].omega.toRotationMatrix());
-        double lvlimit = deg2rad(-40.0*dt), uvlimit = deg2rad(40.0*dt); // 20 [deg/s]
+        double lvlimit = deg2rad(-70.0*dt), uvlimit = deg2rad(70.0*dt); // 20 [deg/s]
         hrp::Vector3 limit_by_lvlimit = stikp[i].prev_d_rpy_swing + lvlimit * hrp::Vector3::Ones();
         hrp::Vector3 limit_by_uvlimit = stikp[i].prev_d_rpy_swing + uvlimit * hrp::Vector3::Ones();
-        stikp[i].d_rpy_swing = vlimit(vlimit(tmpdiffr, -1 * limit_rot, limit_rot), limit_by_lvlimit, limit_by_uvlimit);
+        //stikp[i].d_rpy_swing = vlimit(vlimit(tmpdiffr, -1 * limit_rot, limit_rot), limit_by_lvlimit, limit_by_uvlimit);
+        stikp[i].d_rpy_swing = tmpdiffr, -1 * limit_rot, limit_rot;
       }
       is_foot_touch[i] = false;
       touchdown_d_pos[i] = stikp[i].d_pos_swing;
