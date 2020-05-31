@@ -15,6 +15,7 @@
 #include "hrpsys/util/VectorConvert.h"
 #include <math.h>
 #include <boost/lambda/lambda.hpp>
+#include <unistd.h>
 
 typedef coil::Guard<coil::Mutex> Guard;
 
@@ -372,6 +373,7 @@ void Stabilizer::getTargetParameters ()
     ref_foot_origin_rot = foot_origin_rot;
     ref_foot_origin_pos = foot_origin_pos;
     for (size_t i = 0; i < stikp.size(); i++) {
+      stikp[i].target_ee_p_foot = foot_origin_rot.transpose() * (target_ee_p[i] - foot_origin_pos);
       stikp[i].target_ee_diff_p = foot_origin_rot.transpose() * (target_ee_p[i] - foot_origin_pos);
       stikp[i].ref_theta = Eigen::AngleAxisd(foot_origin_rot.transpose() * target_ee_R[i]);
       ref_force[i] = foot_origin_rot.transpose() * ref_force[i];
@@ -672,7 +674,7 @@ void Stabilizer::getActualParametersForST ()
             if (!eefm_use_swing_damping || !large_swing_m_diff[j]) tmp_damping_gain(j) = (1-transition_smooth_gain) * tmp_damping * 10 + transition_smooth_gain * tmp_damping;
             else tmp_damping_gain(j) = (1-transition_smooth_gain) * eefm_swing_rot_damping_gain(j) * 10 + transition_smooth_gain * eefm_swing_rot_damping_gain(j);
           }
-          ikp.ee_d_foot_rpy = calcDampingControl(ikp.ref_moment, ee_moment, ikp.ee_d_foot_rpy, tmp_damping_gain, ikp.eefm_rot_time_const);
+          ikp.ee_d_foot_rpy = calcDampingControl(ikp.ref_moment, ee_moment, ikp.ee_d_foot_rpy, tmp_damping_gain, ikp.eefm_rot_time_const * 0.3);
           ikp.ee_d_foot_rpy = vlimit(ikp.ee_d_foot_rpy, -1 * ikp.eefm_rot_compensation_limit, ikp.eefm_rot_compensation_limit);
         }
         if (!eefm_use_force_difference_control) { // Pos
@@ -693,7 +695,7 @@ void Stabilizer::getActualParametersForST ()
           hrp::Vector3 plane_y = target_ee_R[i].col(1);
           hrp::Matrix33 act_ee_R_world = target->R * stikp[i].localR;
           hrp::Vector3 normal_vector = act_ee_R_world.col(2);
-          /* projected_normal = c1 * plane_x + c2 * plane_y : c1 = plane_x.dot(normal_vector), c2 = plane_y.dot(normal_vector) because (normal-vector - projected_normal) is orthogonal to plane */
+          // projected_normal = c1 * plane_x + c2 * plane_y : c1 = plane_x.dot(normal_vector), c2 = plane_y.dot(normal_vector) because (normal-vector - projected_normal) is orthogonal to plane 
           projected_normal.at(i) = plane_x.dot(normal_vector) * plane_x + plane_y.dot(normal_vector) * plane_y;
           act_force.at(i) = sensor_force;
         }
@@ -701,6 +703,8 @@ void Stabilizer::getActualParametersForST ()
         act_total_foot_origin_moment += (target->R * ikp.localp + target->p - foot_origin_pos).cross(sensor_force) + ee_moment;
       }
       act_total_foot_origin_moment = foot_origin_rot.transpose() * act_total_foot_origin_moment;
+      
+      std::cerr << hrp::rpyFromRot(m_robot->link("WAIST")->R)[1] << " " << stikp[0].ee_d_foot_rpy[1] << " " << stikp[1].ee_d_foot_rpy[1] << std::endl;
 
       if (eefm_use_force_difference_control) {
         // fxyz control
@@ -822,9 +826,10 @@ void Stabilizer::sync_2_st ()
   for (size_t i = 0; i < stikp.size(); i++) {
     STIKParam& ikp = stikp[i];
     ikp.target_ee_diff_p = hrp::Vector3::Zero();
-    ikp.target_ee_pos = hrp::Vector3::Zero();
-    ikp.target_ee_vel = hrp::Vector3::Zero();
-    ikp.target_ee_acc = hrp::Vector3::Zero();
+    ikp.ee_pos = hrp::Vector3::Zero();
+    ikp.ee_vel = hrp::Vector3::Zero();
+    ikp.ee_acc = hrp::Vector3::Zero();
+    ikp.target_ee_p_foot = hrp::Vector3::Zero();
     ikp.d_pos_swing = ikp.prev_d_pos_swing = hrp::Vector3::Zero();
     ikp.d_rpy_swing = ikp.prev_d_rpy_swing = hrp::Vector3::Zero();
     ikp.target_ee_diff_p_filter->reset(hrp::Vector3::Zero());
@@ -1623,13 +1628,13 @@ void Stabilizer::calcEEForceMomentControl()
       hrp::Link* target = m_robot->link(stikp[i].target_name);
       stikp[i].target_ee_diff_p -= foot_origin_rot.transpose() * (target->p + target->R * stikp[i].localp - foot_origin_pos);
       hrp::Vector3 tmp_pos = stikp[i].target_ee_diff_p;
-      if (stikp[i].target_ee_pos == hrp::Vector3::Zero()) {
-        stikp[i].target_ee_pos = tmp_pos;
+      if (stikp[i].ee_pos == hrp::Vector3::Zero()) {
+        stikp[i].ee_pos = tmp_pos;
       }
-      hrp::Vector3 tmp_vel = (tmp_pos - stikp[i].target_ee_pos) / dt;
-      stikp[i].target_ee_acc = (tmp_vel - stikp[i].target_ee_vel) / dt;
-      stikp[i].target_ee_vel = tmp_vel;
-      stikp[i].target_ee_pos = tmp_pos;
+      hrp::Vector3 tmp_vel = (tmp_pos - stikp[i].ee_pos) / dt;
+      stikp[i].ee_acc = (tmp_vel - stikp[i].ee_vel) / dt;
+      stikp[i].ee_vel = tmp_vel;
+      stikp[i].ee_pos = tmp_pos;
       stikp[i].act_theta = Eigen::AngleAxisd(foot_origin_rot.transpose() * target->R * stikp[i].localR);
     }
   }
@@ -1731,9 +1736,9 @@ void Stabilizer::calcSwingEEModification ()
             hoge--;
           } else {
             //tmpval *= 0.97;
-            //tmpval += stikp[i].target_ee_pos * dt * 0.1;
+            //tmpval += stikp[i].ee_pos * dt * 0.1;
             //tmpdiffp += tmpval;
-            tmpdiffp += stikp[i].target_ee_vel * dt * 0.8;
+            //tmpdiffp += stikp[i].ee_vel * dt * 0.5;
             stikp[i].d_pos_swing = vlimit(vlimit(tmpdiffp, -1 * limit_pos, limit_pos), limit_by_lvlimit, limit_by_uvlimit);
           }
         } else {

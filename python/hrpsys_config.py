@@ -949,6 +949,7 @@ class HrpsysConfigurator(object):
             self.connectLoggerPort(self.abc, 'cogOut')
             self.connectLoggerPort(self.abc, 'tmp')
             self.connectLoggerPort(self.abc, 'allEEComp')
+            self.connectLoggerPort(self.abc, 'shimpei')
         if self.st != None:
             self.connectLoggerPort(self.st, 'zmp')
             self.connectLoggerPort(self.st, 'originRefZmp')

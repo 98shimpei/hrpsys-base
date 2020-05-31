@@ -74,9 +74,9 @@ public:
     double avoid_gain, reference_gain, max_limb_length, limb_length_margin;
     size_t ik_loop_count;
     Eigen::AngleAxisd ref_theta, act_theta, omega;
-    hrp::Vector3 target_ee_pos;
-    hrp::Vector3 target_ee_vel;
-    hrp::Vector3 target_ee_acc;
+    hrp::Vector3 ee_pos, ee_vel, ee_acc;
+    hrp::Vector3 target_ee_p_foot;
+
   };
   enum cmode {MODE_IDLE, MODE_AIR, MODE_ST, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_AIR} control_mode;
   // members

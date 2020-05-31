@@ -81,6 +81,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_baseRpyOut("baseRpyOut", m_baseRpy),
       m_baseTformOut("baseTformOut", m_baseTform),
       m_tmpOut("tmp", m_tmp),
+      m_shimpeiOut("shimpei", m_shimpei),
       m_basePoseOut("basePoseOut", m_basePose),
       m_accRefOut("accRef", m_accRef),
       m_contactStatesOut("contactStates", m_contactStates),
@@ -138,6 +139,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("baseRpyOut", m_baseRpyOut);
     addOutPort("baseTformOut", m_baseTformOut);
     addOutPort("tmpOut", m_tmpOut);
+    addOutPort("shimpei", m_shimpeiOut);
     addOutPort("allEEComp", m_allEECompOut);
     addOutPort("basePoseOut", m_basePoseOut);
     addOutPort("accRef", m_accRefOut);
@@ -194,7 +196,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_qRefSeq.data.length(m_robot->numJoints());
     m_qTouchWall.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
-    m_tmp.data.length(27);
+    m_tmp.data.length(35);
+    m_shimpei.data.length(6);
     diff_q.resize(m_robot->numJoints());
 
     control_mode = MODE_IDLE;
@@ -924,8 +927,26 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       tmp_zmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cmp;
       m_tmp.data[23] = gg->get_tmp(21);
       m_tmp.data[24] = gg->get_tmp(22);
+      m_tmp.data[27] = st->stikp[2].ee_pos[0];//right hand pos
+      m_tmp.data[28] = st->stikp[2].ee_pos[1];
+      m_tmp.data[29] = st->stikp[2].ee_pos[2];
+      m_tmp.data[30] = st->stikp[2].target_ee_p_foot[0];//right hand pos
+      m_tmp.data[31] = st->stikp[2].target_ee_p_foot[1];
+      m_tmp.data[32] = st->stikp[2].target_ee_p_foot[2];
+      m_tmp.data[33] = 33;
+      m_tmp.data[34] = 34;
       m_tmp.tm = m_qRef.tm;
       m_tmpOut.write();
+
+      m_shimpei.data[0] = st->stikp[2].ee_pos[0];//right hand pos
+      m_shimpei.data[1] = st->stikp[2].ee_pos[1];
+      m_shimpei.data[2] = st->stikp[2].ee_pos[2];
+      m_shimpei.data[3] = st->stikp[2].target_ee_p_foot[0];//right hand pos
+      m_shimpei.data[4] = st->stikp[2].target_ee_p_foot[1];
+      m_shimpei.data[5] = st->stikp[2].target_ee_p_foot[2];
+      m_shimpei.tm = m_qRef.tm;
+      m_shimpeiOut.write();
+      
       for (size_t i = 0; i < st->stikp.size(); i++) {
         for (size_t j = 0; j < 3; j++) {
           m_allEEComp.data[6*i+j] = st->stikp[i].d_pos_swing(j);
