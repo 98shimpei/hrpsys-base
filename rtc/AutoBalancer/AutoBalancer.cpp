@@ -1110,6 +1110,7 @@ void AutoBalancer::getTargetParameters()
     if ( gg_is_walking ) {
       gg->set_default_zmp_offsets(default_zmp_offsets);
       hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
+      act_cog.head(2) += sbp_cog_offset.head(2);
       hrp::Vector3 act_cogvel = st->ref_foot_origin_rot * st->act_cogvel;
       hrp::Vector3 act_cmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cmp;
       gg_solved = gg->proc_one_tick(act_cog, act_cogvel, act_cmp);
@@ -1566,7 +1567,7 @@ void AutoBalancer::solveFullbodyIK ()
   // calc sbp_cog_offset
   hrp::Vector3 tmp_input_sbp = hrp::Vector3(0,0,0);
   static_balance_point_proc_one(tmp_input_sbp, ref_zmp(2));
-  ref_cog.head(2) -= sbp_cog_offset.head(2);
+  sbp_cog_offset(2) = 0.0;
 
   stopFootForEarlyTouchDown();
 
@@ -1628,7 +1629,7 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.target_link_name = "COM";
         tmp.localPos = hrp::Vector3::Zero();
         tmp.localR = hrp::Matrix33::Identity();
-        tmp.targetPos = ref_cog;// COM height will not be constraint
+        tmp.targetPos = ref_cog - sbp_cog_offset;// COM height will not be constraint
         hrp::Vector3 tmp_tau = gg->get_flywheel_tau();
         tmp_tau = st->vlimit(tmp_tau, -1000, 1000);
         tmp.targetRpy = hrp::Vector3::Zero();
@@ -1859,8 +1860,17 @@ void AutoBalancer::startABCparam(const OpenHRP::AutoBalancerService::StrSequence
   tmp_ratio = 1.0;
   transition_interpolator->setGoal(&tmp_ratio, transition_time, true);
   prev_ref_zmp = ref_zmp;
+  prev_roll_state = false;
+  prev_pitch_state = false;
+  angular_momentum_interpolator->clear();
+  roll_weight_interpolator->clear();
+  pitch_weight_interpolator->clear();
+  limit_cog_interpolator->clear();
   for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
     it->second.is_active = false;
+  }
+  for (size_t i = 0; i < 2; i++) {
+    touchdown_transition_interpolator[leg_names[i]]->clear();
   }
 
   for (size_t i = 0; i < limbs.length(); i++) {
@@ -1910,6 +1920,7 @@ bool AutoBalancer::startWalking ()
     return false;
   }
   hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
+  act_cog.head(2) += sbp_cog_offset.head(2);
   hrp::Vector3 act_cogvel = st->ref_foot_origin_rot * st->act_cogvel;
   hrp::Vector3 act_cmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cmp;
   {
