@@ -151,8 +151,6 @@ class AutoBalancer
   std::vector<InPort<TimedDoubleSeq> *> m_ref_forceIn;
   TimedPoint3D m_diffCP;
   InPort<TimedPoint3D> m_diffCPIn;
-  TimedBooleanSeq m_actContactStates;
-  InPort<TimedBooleanSeq> m_actContactStatesIn;
   TimedPoint3D m_refFootOriginExtMoment;
   InPort<TimedPoint3D> m_refFootOriginExtMomentIn;
   TimedBoolean m_refFootOriginExtMomentIsHoldValue;
@@ -172,17 +170,29 @@ class AutoBalancer
 
   // for debug
   TimedPoint3D m_cog;
+  TimedPoint3D m_originRefZmp, m_originRefCog, m_originRefCogVel, m_originNewZmp;
+  TimedPoint3D m_originActZmp, m_originActCog, m_originActCogVel;
   
   // </rtc-template>
 
   // DataOutPort declaration
   // <rtc-template block="outport_declare">
   OutPort<TimedDoubleSeq> m_qOut;
-  RTC::OutPort<RTC::TimedPoint3D> m_zmpOut;
+  OutPort<TimedPoint3D> m_zmpOut;
+  TimedPoint3D m_zmpAct;
+  OutPort<TimedPoint3D> m_zmpActOut;
+  TimedPoint3D m_refCP;
+  OutPort<TimedPoint3D> m_refCPOut;
+  TimedPoint3D m_actCP;
+  OutPort<TimedPoint3D> m_actCPOut;
+  TimedDoubleSeq m_qAbc;
+  OutPort<TimedDoubleSeq> m_qAbcOut;
   TimedDoubleSeq m_tmp;
   OutPort<TimedDoubleSeq> m_tmpOut;
   TimedDoubleSeq m_shimpei;
   OutPort<TimedDoubleSeq> m_shimpeiOut;
+  TimedPoint3D m_diffFootOriginExtMoment;
+  OutPort<TimedPoint3D> m_diffFootOriginExtMomentOut;
   TimedDoubleSeq m_allEEComp;
   OutPort<TimedDoubleSeq> m_allEECompOut;
   OutPort<TimedPoint3D> m_basePosOut;
@@ -195,6 +205,10 @@ class AutoBalancer
   OutPort<TimedAcceleration3D> m_accRefOut;
   TimedBooleanSeq m_contactStates;
   OutPort<TimedBooleanSeq> m_contactStatesOut;
+  TimedBooleanSeq m_actContactStates;
+  OutPort<TimedBooleanSeq> m_actContactStatesOut;
+  TimedDoubleSeq m_COPInfo;
+  OutPort<TimedDoubleSeq> m_COPInfoOut;
   TimedDoubleSeq m_toeheelRatio;
   OutPort<TimedDoubleSeq> m_toeheelRatioOut;
   TimedDoubleSeq m_controlSwingSupportTime;
@@ -223,6 +237,9 @@ class AutoBalancer
   std::vector<OutPort<TimedPoint3D> *> m_limbCOPOffsetOut;
   // for debug
   OutPort<TimedPoint3D> m_cogOut;
+  OutPort<TimedPoint3D> m_originRefZmpOut, m_originRefCogOut, m_originRefCogVelOut, m_originNewZmpOut;
+  OutPort<TimedPoint3D> m_originActZmpOut, m_originActCogOut, m_originActCogVelOut;
+
   
   // </rtc-template>
 
