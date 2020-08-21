@@ -709,8 +709,6 @@ void Stabilizer::getActualParametersForST ()
       }
       act_total_foot_origin_moment = foot_origin_rot.transpose() * act_total_foot_origin_moment;
       
-      std::cerr << hrp::rpyFromRot(m_robot->link("WAIST")->R)[1] << " " << stikp[0].ee_d_foot_rpy[1] << " " << stikp[1].ee_d_foot_rpy[1] << std::endl;
-
       if (eefm_use_force_difference_control) {
         // fxyz control
         // foot force difference control version
@@ -1740,7 +1738,7 @@ void Stabilizer::calcSwingEEModification ()
             //tmpval *= 0.97;
             //tmpval += stikp[i].ee_pos * dt * 0.1;
             //tmpdiffp += tmpval;
-            //tmpdiffp += stikp[i].ee_vel * dt * 0.5;
+            //tmpdiffp += stikp[i].ee_vel * dt * 0.2; //d
             stikp[i].d_pos_swing = vlimit(vlimit(tmpdiffp, -1 * limit_pos, limit_pos), limit_by_lvlimit, limit_by_uvlimit);
           }
         } else {
