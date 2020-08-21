@@ -651,6 +651,8 @@ namespace rats
     foot_guided_controller_ptr->set_dc_off(hrp::Vector3::Zero());
     is_first_count = false;
     prev_short_of_zmp = hrp::Vector3::Zero();
+    prev_use_roll_flywheel = false;
+    prev_use_pitch_flywheel = false;
     prev_act_cp = cur_cog; // assume that robot is stopping when starting walking
     fxy = hrp::Vector3::Zero();
     sum_fx = sum_fy = hrp::Vector3::Zero();
@@ -713,7 +715,10 @@ namespace rats
         calc_next_coords_velocity_mode(cv, get_overwritable_index(),
                                        (overwritable_footstep_index_offset == 0 ? 4 : 3) // Why?
                                        );
-        if (velocity_mode_flg == VEL_ENDING) velocity_mode_flg = VEL_IDLING;
+        if (velocity_mode_flg == VEL_ENDING) {
+          velocity_mode_flg = VEL_IDLING;
+          if (is_stable_go_stop_mode) is_emergency_step = true;
+        }
         if (overwritable_footstep_index_offset != 0) overwrite_footstep_nodes_list.push_back(footstep_nodes_list[lcg.get_footstep_index()]);
         for (size_t i = 0; i < cv.size(); i++) {
             std::vector<step_node> tmp_fsn;
@@ -1873,12 +1878,11 @@ namespace rats
   {
     if (!is_emergency_step) {
       velocity_mode_flg = VEL_DOING;
-    } else {
-      orig_default_step_time = default_step_time;
-      orig_default_double_support_static_ratio_before = default_double_support_ratio_before;
-      orig_default_double_support_static_ratio_after = default_double_support_ratio_after;
-      orig_min_time = min_time;
     }
+    orig_default_step_time = default_step_time;
+    orig_default_double_support_static_ratio_before = default_double_support_ratio_before;
+    orig_default_double_support_static_ratio_after = default_double_support_ratio_after;
+    orig_min_time = min_time;
     /* initialize */
     clear_footstep_nodes_list();
     set_velocity_param (vel_x, vel_y, vel_theta);

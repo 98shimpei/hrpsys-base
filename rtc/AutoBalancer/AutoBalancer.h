@@ -308,6 +308,7 @@ class AutoBalancer
   void limit_cog (hrp::Vector3& cog);
   bool vlimit(double& ret, const double llimit_value, const double ulimit_value);
   void stopFootForEarlyTouchDown();
+  void limbStretchAvoidanceControl();
 
   // for gg
   typedef boost::shared_ptr<rats::gait_generator> ggPtr;
@@ -379,8 +380,8 @@ class AutoBalancer
   bool is_foot_touch[2];
   std::map<std::string, interpolator*> touchdown_transition_interpolator;
   bool prev_roll_state, prev_pitch_state;
-  bool is_emergency_step_mode, is_emergency_touch_wall_mode, is_emergency_stopping, is_touch_wall_motion_solved;
-  double cog_z_constraint, touch_wall_retrieve_time;
+  bool is_emergency_step_mode, is_emergency_touch_wall_mode, is_emergency_stopping, is_touch_wall_motion_solved, use_collision_avoidance, is_natural_walk, is_stop_early_foot;
+  double cog_z_constraint, touch_wall_retrieve_time, arm_swing_deg;
 };
 
 
