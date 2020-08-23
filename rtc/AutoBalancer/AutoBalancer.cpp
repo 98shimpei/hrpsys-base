@@ -334,8 +334,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         }
         st->contact_states_index_map.insert(std::pair<std::string, size_t>(ee_name, i));
         //st->is_ik_enable.push_back( (ee_name.find("leg") != std::string::npos ? true : true) ); // Hands ik => disabled, feet ik => enabled, by default
-        st->is_ik_enable.push_back( (ee_name.find("larm") != std::string::npos ? false : true) ); // LARM ik => disabled, others ik => enabled
-        //kokodayo
+        st->is_ik_enable.push_back(true); // all ik enable !!!!!!!!!!!!!!!!!!!!!!!!!!modified
         st->is_feedback_control_enable.push_back( (ee_name.find("leg") != std::string::npos ? true : false) ); // Hands feedback control => disabled, feet feedback control => enabled, by default
         st->is_zmp_calc_enable.push_back( (ee_name.find("leg") != std::string::npos ? true : false) ); // To zmp calculation, hands are disabled and feet are enabled, by default
         // Fix for toe joint
@@ -1450,8 +1449,10 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     if (gg_is_walking) {
         // hand control while walking = solve hand ik with is_hand_fix_mode and solve hand ik without is_hand_fix_mode
         bool is_hand_control_while_walking = false;
+        int fornum = 0;
         for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
-            if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
+            fornum++;
+            if ( it->second.is_active /*&& std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()*/
                  && it->first.find("arm") != std::string::npos ) {
                 is_hand_control_while_walking = true;
             }
@@ -1461,12 +1462,16 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             // Store hand_fix_initial_offset in the initialization of walking
             if (is_hand_fix_initial) hand_fix_initial_offset = tmp_fix_coords.rot.transpose() * (hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2)) - tmp_fix_coords.pos);
             is_hand_fix_initial = false;
-            hrp::Vector3 dif_p = hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2)) - tmp_fix_coords.pos - tmp_fix_coords.rot * hand_fix_initial_offset;
+            //hrp::Vector3 dif_p = hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2)) - tmp_fix_coords.pos - tmp_fix_coords.rot * hand_fix_initial_offset;
+            static hrp::Vector3 init_cog = gg->get_cog();
+            hrp::Vector3 dif_p = hrp::Vector3(init_cog(0), init_cog(1), tmp_fix_coords.pos(2)) - tmp_fix_coords.pos - tmp_fix_coords.rot * hand_fix_initial_offset;
             if (is_hand_fix_mode) {
                 dif_p = tmp_fix_coords.rot.transpose() * dif_p;
                 dif_p(1) = 0;
+                std::cerr << "mystr ABC dif_p " << dif_p(0) << " " << dif_p(1) << " " << dif_p(2) << std::endl;
                 dif_p = tmp_fix_coords.rot * dif_p;
             }
+            std::cerr << "mystr ABC cog " << gg->get_cog()(0) << " " << gg->get_cog()(1) << " " << gg->get_cog()(2) << std::endl;
             for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
                 if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
                      && it->first.find("arm") != std::string::npos ) {
@@ -1541,6 +1546,7 @@ void AutoBalancer::updateWalkingVelocityFromHandError (coordinates& tmp_fix_coor
 
 void AutoBalancer::calcReferenceJointAnglesForIK ()
 {
+    // TODO : check frame and robot state for this calculation
     fik->overwrite_ref_ja_index_vec.clear();
     // Fix for toe joint
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
@@ -1671,6 +1677,7 @@ void AutoBalancer::limbStretchAvoidanceControl () {
 }
 void AutoBalancer::solveFullbodyIK ()
 {
+  std::cerr << "mystr ABC solveFullbodyIK" << std::endl;
   // set desired natural pose and pullback gain
   for(int i=0;i<m_robot->numJoints();i++) {
       fik->q_ref(i) = m_qRef.data[i];
@@ -3369,6 +3376,7 @@ void AutoBalancer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerPa
 
 void AutoBalancer::copyRatscoords2Footstep(OpenHRP::AutoBalancerService::Footstep& out_fs, const rats::coordinates& in_fs)
 {
+  std::cerr << "[" << m_profile.instance_name << "] setGaitGeneratorParam" << std::endl;
   memcpy(out_fs.pos, in_fs.pos.data(), sizeof(double)*3);
   Eigen::Quaternion<double> qt(in_fs.rot);
   out_fs.rot[0] = qt.w();
