@@ -1462,22 +1462,25 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             // Store hand_fix_initial_offset in the initialization of walking
             if (is_hand_fix_initial) hand_fix_initial_offset = tmp_fix_coords.rot.transpose() * (hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2)) - tmp_fix_coords.pos);
             is_hand_fix_initial = false;
-            //hrp::Vector3 dif_p = hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2)) - tmp_fix_coords.pos - tmp_fix_coords.rot * hand_fix_initial_offset;
-            static hrp::Vector3 init_cog = gg->get_cog();
-            hrp::Vector3 dif_p = hrp::Vector3(init_cog(0), init_cog(1), tmp_fix_coords.pos(2)) - tmp_fix_coords.pos - tmp_fix_coords.rot * hand_fix_initial_offset;
+            hrp::Vector3 dif_p = hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2)) - (tmp_fix_coords.pos + tmp_fix_coords.rot * hand_fix_initial_offset);
+            
+            //static hrp::Vector3 init_cog = hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2));
+            //hrp::Vector3 dif_p = init_cog - tmp_fix_coords.pos - tmp_fix_coords.rot * hand_fix_initial_offset;
+
             if (is_hand_fix_mode) {
                 dif_p = tmp_fix_coords.rot.transpose() * dif_p;
                 dif_p(1) = 0;
-                std::cerr << "mystr ABC dif_p " << dif_p(0) << " " << dif_p(1) << " " << dif_p(2) << std::endl;
                 dif_p = tmp_fix_coords.rot * dif_p;
             }
-            std::cerr << "mystr ABC cog " << gg->get_cog()(0) << " " << gg->get_cog()(1) << " " << gg->get_cog()(2) << std::endl;
             for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
                 if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
                      && it->first.find("arm") != std::string::npos ) {
                     it->second.target_p0 = it->second.target_p0 + dif_p;
                 }
             }
+            
+            static hrp::Vector3 dest_pos = ikp.at("rarm").target_p0;
+            ikp.at("rarm").target_p0 = dest_pos;
         }
     } else if (!limit_cog_interpolator->isEmpty()) {
       for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
@@ -1677,7 +1680,6 @@ void AutoBalancer::limbStretchAvoidanceControl () {
 }
 void AutoBalancer::solveFullbodyIK ()
 {
-  std::cerr << "mystr ABC solveFullbodyIK" << std::endl;
   // set desired natural pose and pullback gain
   for(int i=0;i<m_robot->numJoints();i++) {
       fik->q_ref(i) = m_qRef.data[i];
