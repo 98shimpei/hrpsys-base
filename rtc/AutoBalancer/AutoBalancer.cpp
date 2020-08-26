@@ -53,6 +53,7 @@ static std::ostream& operator<<(std::ostream& os, const struct RTC::Time &tm)
 
 AutoBalancer::AutoBalancer(RTC::Manager* manager)
     : RTC::DataFlowComponentBase(manager),
+    
       // <rtc-template block="initializer">
       m_qRefIn("qRef", m_qRef),
       m_qCurrentIn("qCurrent", m_qCurrent),
@@ -986,9 +987,12 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_tmp.tm = m_qRef.tm;
       m_tmpOut.write();
 
-      m_shimpei.data[0] = st->stikp[2].ee_pos[0];//right hand pos
+      /*m_shimpei.data[0] = st->stikp[2].ee_pos[0];//right hand pos
       m_shimpei.data[1] = st->stikp[2].ee_pos[1];
-      m_shimpei.data[2] = st->stikp[2].ee_pos[2];
+      m_shimpei.data[2] = st->stikp[2].ee_pos[2];*/
+      m_shimpei.data[0] = ikp.at("rarm").shimpei_vec(0);//right hand pos
+      m_shimpei.data[1] = ikp.at("rarm").shimpei_vec(1);//right hand pos
+      m_shimpei.data[2] = ikp.at("rarm").shimpei_vec(2);//right hand pos
       m_shimpei.data[3] = st->stikp[2].target_ee_p_foot[0];//right hand pos
       m_shimpei.data[4] = st->stikp[2].target_ee_p_foot[1];
       m_shimpei.data[5] = st->stikp[2].target_ee_p_foot[2];
@@ -1479,8 +1483,30 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
                 }
             }
             
-            static hrp::Vector3 dest_pos = ikp.at("rarm").target_p0;
-            ikp.at("rarm").target_p0 = dest_pos;
+            
+            static hrp::Vector3 now_dest = ikp.at("rarm").target_p0;
+            static hrp::Vector3 pre_pos = ikp.at("rarm").target_p0;
+            static hrp::Vector3 pre_dest = ikp.at("rarm").target_p0;
+            now_dest = ikp.at("rarm").target_p0;
+            ikp.at("rarm").target_p0 = pre_pos * 0.99 + pre_dest * 0.01;
+            pre_pos = ikp.at("rarm").target_p0;
+            pre_dest = now_dest;
+
+            static hrp::Matrix33 now_dest_r = ikp.at("rarm").target_r0;
+            static hrp::Matrix33 pre_pos_r = ikp.at("rarm").target_r0;
+            static hrp::Matrix33 pre_dest_r = ikp.at("rarm").target_r0;
+            now_dest_r = ikp.at("rarm").target_r0;
+            ikp.at("rarm").target_r0 = pre_pos_r * 0.99 + pre_dest_r * 0.01;
+            pre_pos_r = ikp.at("rarm").target_r0;
+            pre_dest_r = now_dest_r;
+            
+            static hrp::Vector3 p = ikp.at("rarm").target_p0;
+            static hrp::Vector3 dp = ikp.at("rarm").target_p0;
+            p = ikp.at("rarm").target_p0;
+            ikp.at("rarm").shimpei_vec = p - dp;
+            dp = p;
+            
+            std::cerr << "target_p0 " << p(0) << " " << p(1) << " " << p(2) << std::endl;
         }
     } else if (!limit_cog_interpolator->isEmpty()) {
       for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
