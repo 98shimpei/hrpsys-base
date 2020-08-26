@@ -1484,11 +1484,12 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             }
             
             
+            float ft = 0.005;
             static hrp::Vector3 now_dest = ikp.at("rarm").target_p0;
             static hrp::Vector3 pre_pos = ikp.at("rarm").target_p0;
             static hrp::Vector3 pre_dest = ikp.at("rarm").target_p0;
             now_dest = ikp.at("rarm").target_p0;
-            ikp.at("rarm").target_p0 = pre_pos * 0.99 + pre_dest * 0.01;
+            ikp.at("rarm").target_p0 = pre_pos * (1.0 - ft) + pre_dest * ft;
             pre_pos = ikp.at("rarm").target_p0;
             pre_dest = now_dest;
 
@@ -1496,7 +1497,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             static hrp::Matrix33 pre_pos_r = ikp.at("rarm").target_r0;
             static hrp::Matrix33 pre_dest_r = ikp.at("rarm").target_r0;
             now_dest_r = ikp.at("rarm").target_r0;
-            ikp.at("rarm").target_r0 = pre_pos_r * 0.99 + pre_dest_r * 0.01;
+            ikp.at("rarm").target_r0 = pre_pos_r * (1.0 - ft) + pre_dest_r * ft;
             pre_pos_r = ikp.at("rarm").target_r0;
             pre_dest_r = now_dest_r;
             
