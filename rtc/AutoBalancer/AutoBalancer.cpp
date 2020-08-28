@@ -1464,7 +1464,18 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         if (is_hand_control_while_walking) {
         //if (false) { // Disabled temporarily
             // Store hand_fix_initial_offset in the initialization of walking
-            if (is_hand_fix_initial) hand_fix_initial_offset = tmp_fix_coords.rot.transpose() * (hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2)) - tmp_fix_coords.pos);
+            if (is_hand_fix_initial) {
+                hand_fix_initial_offset = tmp_fix_coords.rot.transpose() * (hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2)) - tmp_fix_coords.pos);
+              
+                for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
+                    it->second.now_dest_p = it->second.target_p0;
+                    it->second.pre_dest_p = it->second.target_p0;
+                    it->second.pre_p = it->second.target_p0;
+                    it->second.now_dest_r = it->second.target_r0;
+                    it->second.pre_dest_r = it->second.target_r0;
+                    it->second.pre_r = it->second.target_r0;
+                }
+            }
             is_hand_fix_initial = false;
             hrp::Vector3 dif_p = hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2)) - (tmp_fix_coords.pos + tmp_fix_coords.rot * hand_fix_initial_offset);
             
@@ -1476,30 +1487,27 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
                 dif_p(1) = 0;
                 dif_p = tmp_fix_coords.rot * dif_p;
             }
+            
+            float ft = 0.005;
+            
             for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
                 if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
                      && it->first.find("arm") != std::string::npos ) {
                     it->second.target_p0 = it->second.target_p0 + dif_p;
+                    
+                    it->second.now_dest_p = it->second.target_p0;
+                    it->second.target_p0 = it->second.pre_p * (1.0 - ft) + it->second.pre_dest_p * ft; //low pass filter
+                    it->second.pre_p = it->second.target_p0;
+                    it->second.pre_dest_p = it->second.now_dest_p;
+
+                    it->second.now_dest_r = it->second.target_r0;
+                    it->second.target_r0 = it->second.pre_r * (1.0 - ft) + it->second.pre_dest_r * ft; //low pass filter
+                    it->second.pre_r = it->second.target_r0;
+                    it->second.pre_dest_r = it->second.now_dest_r;
+
                 }
             }
             
-            
-            float ft = 0.005;
-            static hrp::Vector3 now_dest = ikp.at("rarm").target_p0;
-            static hrp::Vector3 pre_pos = ikp.at("rarm").target_p0;
-            static hrp::Vector3 pre_dest = ikp.at("rarm").target_p0;
-            now_dest = ikp.at("rarm").target_p0;
-            ikp.at("rarm").target_p0 = pre_pos * (1.0 - ft) + pre_dest * ft;
-            pre_pos = ikp.at("rarm").target_p0;
-            pre_dest = now_dest;
-
-            static hrp::Matrix33 now_dest_r = ikp.at("rarm").target_r0;
-            static hrp::Matrix33 pre_pos_r = ikp.at("rarm").target_r0;
-            static hrp::Matrix33 pre_dest_r = ikp.at("rarm").target_r0;
-            now_dest_r = ikp.at("rarm").target_r0;
-            ikp.at("rarm").target_r0 = pre_pos_r * (1.0 - ft) + pre_dest_r * ft;
-            pre_pos_r = ikp.at("rarm").target_r0;
-            pre_dest_r = now_dest_r;
             
             static hrp::Vector3 p = ikp.at("rarm").target_p0;
             static hrp::Vector3 dp = ikp.at("rarm").target_p0;
