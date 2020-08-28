@@ -1531,8 +1531,10 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             it->second.target_r0 = it->second.pre_r * (1.0 - ft) + it->second.pre_dest_r * ft; //low pass filter
             it->second.pre_r = it->second.target_r0;
             it->second.pre_dest_r = it->second.now_dest_r;
+            std::cerr << "hoge" << std::endl;
         }
     }
+    std::cerr << "piyo" << std::endl;
 };
 
 void AutoBalancer::calculateOutputRefForces ()
