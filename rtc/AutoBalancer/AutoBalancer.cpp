@@ -1460,6 +1460,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             it->second.pre_dest_r = it->second.target_r0;
             it->second.pre_r = it->second.target_r0;
         }
+        init = false;
     }
 
     if (gg_is_walking) {
