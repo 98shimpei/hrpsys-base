@@ -1738,7 +1738,7 @@ void Stabilizer::calcSwingEEModification ()
             //tmpval *= 0.97;
             //tmpval += stikp[i].ee_pos * dt * 0.1;
             //tmpdiffp += tmpval;
-            //tmpdiffp += stikp[i].ee_vel * dt * 0.5; //d
+            tmpdiffp += stikp[i].ee_vel * dt * 0.5; //d
             stikp[i].d_pos_swing = vlimit(vlimit(tmpdiffp, -1 * limit_pos, limit_pos), limit_by_lvlimit, limit_by_uvlimit);
           }
         } else {

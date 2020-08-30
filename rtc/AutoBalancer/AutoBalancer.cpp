@@ -1466,9 +1466,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     if (gg_is_walking) {
         // hand control while walking = solve hand ik with is_hand_fix_mode and solve hand ik without is_hand_fix_mode
         bool is_hand_control_while_walking = false;
-        int fornum = 0;
         for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
-            fornum++;
             if ( it->second.is_active /*&& std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()*/
                  && it->first.find("arm") != std::string::npos ) {
                 is_hand_control_while_walking = true;
@@ -1500,14 +1498,12 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
                 }
             }
             
-            
             static hrp::Vector3 p = ikp.at("rarm").target_p0;
             static hrp::Vector3 dp = ikp.at("rarm").target_p0;
             p = ikp.at("rarm").target_p0;
             ikp.at("rarm").shimpei_vec = p - dp;
             dp = p;
             
-            std::cerr << "target_p0 " << p(0) << " " << p(1) << " " << p(2) << std::endl;
         }
     } else if (!limit_cog_interpolator->isEmpty()) {
       for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
@@ -1517,7 +1513,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         }
       }
     }
-
+    
     float ft = 0.005;
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
@@ -1532,10 +1528,8 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             it->second.target_r0 = it->second.pre_r * (1.0 - ft) + it->second.pre_dest_r * ft; //low pass filter
             it->second.pre_r = it->second.target_r0;
             it->second.pre_dest_r = it->second.now_dest_r;
-            std::cerr << "hoge" << std::endl;
         }
     }
-    std::cerr << "piyo" << std::endl;
 };
 
 void AutoBalancer::calculateOutputRefForces ()
