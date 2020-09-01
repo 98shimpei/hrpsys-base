@@ -1482,9 +1482,6 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             is_hand_fix_initial = false;
             hrp::Vector3 dif_p = hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2)) - (tmp_fix_coords.pos + tmp_fix_coords.rot * hand_fix_initial_offset);
             
-            //static hrp::Vector3 init_cog = hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2));
-            //hrp::Vector3 dif_p = init_cog - tmp_fix_coords.pos - tmp_fix_coords.rot * hand_fix_initial_offset;
-
             if (is_hand_fix_mode) {
                 dif_p = tmp_fix_coords.rot.transpose() * dif_p;
                 dif_p(1) = 0;
