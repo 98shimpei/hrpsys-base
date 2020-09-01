@@ -1514,7 +1514,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
       }
     }
     
-    float ft = 0.005;
+    float ft = 2.5 * m_dt;
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
              && it->first.find("arm") != std::string::npos ) {
