@@ -127,7 +127,6 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   is_foot_touch.resize(stikp.size(), false);
   touchdown_d_pos.resize(stikp.size(), hrp::Vector3::Zero());
   touchdown_d_rpy.resize(stikp.size(), hrp::Vector3::Zero());
-  touchdown_d_rot.resize(stikp.size(), hrp::Matrix33::Identity());
   prev_ref_zmp = hrp::Vector3::Zero();
   prev_ref_cog = hrp::Vector3::Zero();
   act_cogvel = hrp::Vector3::Zero();
