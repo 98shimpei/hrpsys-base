@@ -1751,7 +1751,9 @@ void Stabilizer::calcSwingEEModification ()
       {
         Eigen::AngleAxisd prev_omega = stikp[i].omega;
         stikp[i].omega = (stikp[i].act_theta.inverse() * stikp[i].ref_theta);
-        stikp[i].omega.angle() *= 0.9;//stikp[i].eefm_swing_rot_spring_gain(0) * dt;
+        //stikp[i].omega.angle() *= stikp[i].eefm_swing_rot_spring_gain(0) * dt;
+        //stikp[i].omega.angle() *= 0.0 * dt;
+        stikp[i].omega.angle() *= 0.1;
         //stikp[i].omega = stikp[i].omega * prev_omega;
         hrp::Vector3 tmpdiffr = hrp::rpyFromRot(stikp[i].omega.toRotationMatrix());
         double lvlimit = deg2rad(-70.0*dt), uvlimit = deg2rad(70.0*dt); // 20 [deg/s]
