@@ -1672,8 +1672,8 @@ void Stabilizer::calcEEForceMomentControl()
         tmpR[i] = target_ee_R[i];
       }
       // Add swing ee compensation
-      rats::rotm3times(tmpR[i], tmpR[i], hrp::rotFromRpy(rel_ee_rot_for_ik[i].transpose() * stikp[i].d_rpy_swing));
-      //rats::rotm3times(tmpR[i], tmpR[i], stikp[i].d_rot_swing * rel_ee_rot_for_ik[i].transpose());
+      //rats::rotm3times(tmpR[i], tmpR[i], hrp::rotFromRpy(rel_ee_rot_for_ik[i].transpose() * stikp[i].d_rpy_swing));
+      rats::rotm3times(tmpR[i], tmpR[i], stikp[i].omega.toRotationMatrix());
       //tmpR[i] = (foot_origin_rot * stikp[i].d_rot_swing) * tmpR[i];
       tmpp[i] = tmpp[i] + (foot_origin_rot * stikp[i].d_pos_swing);
     }
@@ -1740,7 +1740,7 @@ void Stabilizer::calcSwingEEModification ()
             //tmpval *= 0.97;
             //tmpval += stikp[i].ee_pos * dt * 0.1;
             //tmpdiffp += tmpval;
-            //tmpdiffp += stikp[i].ee_vel * dt * 0.5; //d
+            tmpdiffp += stikp[i].ee_vel * dt * 0.5; //d
             stikp[i].d_pos_swing = vlimit(vlimit(tmpdiffp, -1 * limit_pos, limit_pos), limit_by_lvlimit, limit_by_uvlimit);
           }
         } else {
@@ -1751,16 +1751,13 @@ void Stabilizer::calcSwingEEModification ()
       {
         Eigen::AngleAxisd prev_omega = stikp[i].omega;
         stikp[i].omega = (stikp[i].act_theta.inverse() * stikp[i].ref_theta);
-        //stikp[i].omega.angle() *= stikp[i].eefm_swing_rot_spring_gain(0) * dt;
-        //stikp[i].omega.angle() *= 0.0 * dt;
-        stikp[i].omega.angle() *= 0.1;
-        //stikp[i].omega = stikp[i].omega * prev_omega;
+        stikp[i].omega.angle() *= stikp[i].eefm_swing_rot_spring_gain(0) * dt;
+        stikp[i].omega = stikp[i].omega * prev_omega;
         hrp::Vector3 tmpdiffr = hrp::rpyFromRot(stikp[i].omega.toRotationMatrix());
         double lvlimit = deg2rad(-70.0*dt), uvlimit = deg2rad(70.0*dt); // 20 [deg/s]
         hrp::Vector3 limit_by_lvlimit = stikp[i].prev_d_rpy_swing + lvlimit * hrp::Vector3::Ones();
         hrp::Vector3 limit_by_uvlimit = stikp[i].prev_d_rpy_swing + uvlimit * hrp::Vector3::Ones();
-        //stikp[i].d_rpy_swing = vlimit(vlimit(tmpdiffr, -1 * limit_rot, limit_rot), limit_by_lvlimit, limit_by_uvlimit);
-        stikp[i].d_rpy_swing = tmpdiffr;//, -1 * limit_rot, limit_rot;
+        stikp[i].d_rpy_swing = vlimit(vlimit(tmpdiffr, -1 * limit_rot, limit_rot), limit_by_lvlimit, limit_by_uvlimit);
       }
       is_foot_touch[i] = false;
       touchdown_d_pos[i] = stikp[i].d_pos_swing;
