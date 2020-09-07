@@ -139,6 +139,7 @@ public:
   bool use_act_states;
   std::vector<double> diff_q;
   interpolator *transition_interpolator;
+  interpolator *st_abc_transition_interpolator;
   size_t falling_direction;
   std::map<std::string, interpolator*> swing_modification_interpolator;
   std::vector<bool> is_foot_touch;

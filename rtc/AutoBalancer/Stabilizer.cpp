@@ -121,7 +121,9 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   root_rot_compensation_limit[0] = root_rot_compensation_limit[1] = deg2rad(90.0);
   detection_count_to_air = static_cast<int>(0.0 / dt);
   transition_interpolator = new interpolator(1, dt, interpolator::HOFFARBIB, 1);
+  st_abc_transition_interpolator = new interpolator(1, dt, interpolator::HOFFARBIB, 1);
   transition_interpolator->setName(std::string(print_str)+" transition_interpolator");
+  st_abc_transition_interpolator->setName(std::string(print_str)+" st_abc_transition_interpolator");
   is_foot_touch.resize(stikp.size(), false);
   touchdown_d_pos.resize(stikp.size(), hrp::Vector3::Zero());
   touchdown_d_rpy.resize(stikp.size(), hrp::Vector3::Zero());
@@ -871,6 +873,11 @@ void Stabilizer::startStabilizer(void)
 {
   waitSTTransition(); // Wait until all transition has finished
   {
+    double tmp_ratio = 0.0;
+    st_abc_transition_interpolator->clear();
+    st_abc_transition_interpolator->set(&tmp_ratio);
+    tmp_ratio = 1.0;
+    st_abc_transition_interpolator->setGoal(&tmp_ratio, 2.0, true);
     Guard guard(m_mutex);
     if ( control_mode == MODE_IDLE ) {
       std::cerr << "[" << print_str << "] " << "Start ST"  << std::endl;
@@ -885,6 +892,11 @@ void Stabilizer::stopStabilizer(void)
 {
   waitSTTransition(); // Wait until all transition has finished
   {
+    double tmp_ratio = 1.0;
+    st_abc_transition_interpolator->clear();
+    st_abc_transition_interpolator->set(&tmp_ratio);
+    tmp_ratio = 0.0;
+    st_abc_transition_interpolator->setGoal(&tmp_ratio, 2.0, true);
     Guard guard(m_mutex);
     if ( (control_mode == MODE_ST || control_mode == MODE_AIR) ) {
       std::cerr << "[" << print_str << "] " << "Stop ST"  << std::endl;

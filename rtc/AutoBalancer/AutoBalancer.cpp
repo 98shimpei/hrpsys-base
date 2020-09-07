@@ -330,7 +330,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
           st->jpe_v.back()->setOptionalWeightVector(optw);
         }
         st->contact_states_index_map.insert(std::pair<std::string, size_t>(ee_name, i));
-        st->is_ik_enable.push_back( (ee_name.find("leg") != std::string::npos ? true : false) ); // Hands ik => disabled, feet ik => enabled, by default
+        st->is_ik_enable.push_back( (ee_name.find("leg") != std::string::npos ? true : true) ); // Hands ik => disabled, feet ik => enabled, by default
         st->is_feedback_control_enable.push_back( (ee_name.find("leg") != std::string::npos ? true : false) ); // Hands feedback control => disabled, feet feedback control => enabled, by default
         st->is_zmp_calc_enable.push_back( (ee_name.find("leg") != std::string::npos ? true : false) ); // To zmp calculation, hands are disabled and feet are enabled, by default
         // Fix for toe joint
@@ -1038,8 +1038,25 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_endCogStateOut.write();
     }
 
+    std::vector<double> abc_q(m_robot->numJoints());
+    for (unsigned int i = 0; i < m_robot->numJoints(); i++) {
+      abc_q[i] = m_robot->joint(i)->q;
+    }
+
     setABCData2ST();
     st->execStabilizer();
+
+    std::vector<double> st_q(m_robot->numJoints());
+    for (unsigned int i = 0; i < m_robot->numJoints(); i++) {
+      st_q[i] = m_robot->joint(i)->q;
+    }
+
+    double tmp_ratio;
+    if(!st->st_abc_transition_interpolator->isEmpty()){
+      st->st_abc_transition_interpolator->get(&tmp_ratio, true);
+    } else {
+      tmp_ratio = 1.0;
+    }
 
     if (!st->reset_emergency_flag && st->is_emergency) {
       m_emergencySignal.data = 1;
@@ -1048,7 +1065,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     if ( m_qRef.data.length() != 0 ) { // initialized
       if (is_legged_robot) {
         for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-          m_qRef.data[i] = m_robot->joint(i)->q;
+          m_qRef.data[i] = tmp_ratio * st_q[i] + (1-tmp_ratio) * abc_q[i];
         }
       }
       m_qOut.write();
