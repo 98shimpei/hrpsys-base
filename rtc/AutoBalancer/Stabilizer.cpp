@@ -873,13 +873,13 @@ void Stabilizer::startStabilizer(void)
 {
   waitSTTransition(); // Wait until all transition has finished
   {
-    double tmp_ratio = 0.0;
-    st_abc_transition_interpolator->clear();
-    st_abc_transition_interpolator->set(&tmp_ratio);
-    tmp_ratio = 1.0;
-    st_abc_transition_interpolator->setGoal(&tmp_ratio, 2.0, true);
     Guard guard(m_mutex);
     if ( control_mode == MODE_IDLE ) {
+      double tmp_ratio = 0.0;
+      st_abc_transition_interpolator->clear();
+      st_abc_transition_interpolator->set(&tmp_ratio);
+      tmp_ratio = 1.0;
+      st_abc_transition_interpolator->setGoal(&tmp_ratio, 2.0, true);
       std::cerr << "[" << print_str << "] " << "Start ST"  << std::endl;
       sync_2_st();
     }
@@ -892,13 +892,13 @@ void Stabilizer::stopStabilizer(void)
 {
   waitSTTransition(); // Wait until all transition has finished
   {
-    double tmp_ratio = 1.0;
-    st_abc_transition_interpolator->clear();
-    st_abc_transition_interpolator->set(&tmp_ratio);
-    tmp_ratio = 0.0;
-    st_abc_transition_interpolator->setGoal(&tmp_ratio, 2.0, true);
     Guard guard(m_mutex);
     if ( (control_mode == MODE_ST || control_mode == MODE_AIR) ) {
+      double tmp_ratio = 1.0;
+      st_abc_transition_interpolator->clear();
+      st_abc_transition_interpolator->set(&tmp_ratio);
+      tmp_ratio = 0.0;
+      st_abc_transition_interpolator->setGoal(&tmp_ratio, 2.0, true);
       std::cerr << "[" << print_str << "] " << "Stop ST"  << std::endl;
       control_mode = (control_mode == MODE_ST) ? MODE_SYNC_TO_IDLE : MODE_IDLE;
     }
