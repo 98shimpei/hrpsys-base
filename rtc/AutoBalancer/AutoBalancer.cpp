@@ -77,6 +77,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_steppableRegionIn("steppableRegion", m_steppableRegion),
       m_qOut("q", m_qRef),
       m_qAbcOut("qAbc", m_qAbc),
+      m_tauOut("tau", m_tau),
       m_zmpOut("zmpOut", m_zmp),
       m_zmpActOut("zmpAct", m_zmpAct),
       m_refCPOut("refCapturePoint", m_refCP),
@@ -149,6 +150,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     // Set OutPort buffer
     addOutPort("q", m_qOut);
     addOutPort("qAbc", m_qAbcOut);
+    addOutPort("tau", m_tauOut);
     addOutPort("zmpOut", m_zmpOut);
     addOutPort("zmpAct", m_zmpActOut);
     addOutPort("refCapturePoint", m_refCPOut);
@@ -224,6 +226,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_qAbc.data.length(m_robot->numJoints());
     m_qCurrent.data.length(m_robot->numJoints());
     m_qRefSeq.data.length(m_robot->numJoints());
+    m_tau.data.length(m_robot->numJoints());
     m_qTouchWall.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
     m_tmp.data.length(35);
@@ -1089,9 +1092,12 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       if (is_legged_robot) {
         for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
           m_qRef.data[i] = tmp_ratio * st->st_q[i] + (1-tmp_ratio) * abc_q[i];
+          m_tau.data[i] = 0.0;
         }
       }
       m_qOut.write();
+      m_tau.tm = m_qRef.tm;
+      m_tauOut.write();
     }
     // for debug output
     m_originRefZmp.data.x = st->ref_zmp(0); m_originRefZmp.data.y = st->ref_zmp(1); m_originRefZmp.data.z = st->ref_zmp(2);
