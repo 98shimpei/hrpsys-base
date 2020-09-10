@@ -171,6 +171,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   qRef.resize(m_robot->numJoints());
   qCurrent.resize(m_robot->numJoints());
   diff_q.resize(m_robot->numJoints());
+  st_q.resize(m_robot->numJoints());
   qRefSeq.resize(m_robot->numJoints());
   controlSwingSupportTime.resize(num, 1.0);
   copInfo.resize(num*3, 1.0); // nx, ny, fz for each end-effectors
@@ -266,6 +267,11 @@ void Stabilizer::execStabilizer()
         for (int i = 0; i < m_robot->numJoints(); i++ ) {
             diff_q[i] = m_robot->joint(i)->q - qRef[i];
         }
+    }
+    if (control_mode == MODE_ST) {
+      for (int i = 0; i < m_robot->numJoints(); i++ ) {
+          st_q[i] = m_robot->joint(i)->q;
+      }
     }
     getCurrentParameters();
   }
@@ -879,7 +885,7 @@ void Stabilizer::startStabilizer(void)
       st_abc_transition_interpolator->clear();
       st_abc_transition_interpolator->set(&tmp_ratio);
       tmp_ratio = 1.0;
-      st_abc_transition_interpolator->setGoal(&tmp_ratio, 2.0, true);
+      st_abc_transition_interpolator->setGoal(&tmp_ratio, 0.9, true);
       std::cerr << "[" << print_str << "] " << "Start ST"  << std::endl;
       sync_2_st();
     }
@@ -898,7 +904,7 @@ void Stabilizer::stopStabilizer(void)
       st_abc_transition_interpolator->clear();
       st_abc_transition_interpolator->set(&tmp_ratio);
       tmp_ratio = 0.0;
-      st_abc_transition_interpolator->setGoal(&tmp_ratio, 2.0, true);
+      st_abc_transition_interpolator->setGoal(&tmp_ratio, 0.9, true);
       std::cerr << "[" << print_str << "] " << "Stop ST"  << std::endl;
       control_mode = (control_mode == MODE_ST) ? MODE_SYNC_TO_IDLE : MODE_IDLE;
     }

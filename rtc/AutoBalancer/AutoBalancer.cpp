@@ -1046,16 +1046,13 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     setABCData2ST();
     st->execStabilizer();
 
-    std::vector<double> st_q(m_robot->numJoints());
-    for (unsigned int i = 0; i < m_robot->numJoints(); i++) {
-      st_q[i] = m_robot->joint(i)->q;
-    }
-
-    double tmp_ratio;
+    double tmp_ratio = 0.0;
     if(!st->st_abc_transition_interpolator->isEmpty()){
       st->st_abc_transition_interpolator->get(&tmp_ratio, true);
-    } else {
+    }else if(st->control_mode == Stabilizer::MODE_ST) {
       tmp_ratio = 1.0;
+    }else{
+      tmp_ratio = 0.0;
     }
 
     if (!st->reset_emergency_flag && st->is_emergency) {
@@ -1065,7 +1062,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     if ( m_qRef.data.length() != 0 ) { // initialized
       if (is_legged_robot) {
         for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-          m_qRef.data[i] = tmp_ratio * st_q[i] + (1-tmp_ratio) * abc_q[i];
+          m_qRef.data[i] = tmp_ratio * st->st_q[i] + (1-tmp_ratio) * abc_q[i];
         }
       }
       m_qOut.write();
