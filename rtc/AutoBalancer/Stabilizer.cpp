@@ -683,7 +683,7 @@ void Stabilizer::getActualParametersForST ()
           //   Basically Equation (16) and (17) in the paper [1]
           hrp::Vector3 tmp_damping_gain;
           for (size_t j = 0; j < 3; ++j) {
-            double tmp_damping = ikp.eefm_rot_damping_gain(j) * (is_single_walking ? 1.0 : 1.5);
+            double tmp_damping = ikp.eefm_rot_damping_gain(j) * (is_single_walking ? 1.0 : 2.0);
             if (!eefm_use_swing_damping || !large_swing_m_diff[j]) tmp_damping_gain(j) = (1-transition_smooth_gain) * tmp_damping * 10 + transition_smooth_gain * tmp_damping;
             else tmp_damping_gain(j) = (1-transition_smooth_gain) * eefm_swing_rot_damping_gain(j) * 10 + transition_smooth_gain * eefm_swing_rot_damping_gain(j);
           }
