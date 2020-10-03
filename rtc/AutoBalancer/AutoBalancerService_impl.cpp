@@ -59,6 +59,11 @@ CORBA::Boolean AutoBalancerService_impl::stopAutoBalancer()
   return m_autobalancer->stopAutoBalancer();
 };
 
+CORBA::Boolean AutoBalancerService_impl::startShimpei()
+{
+  return m_autobalancer->startShimpei();
+};
+
 void AutoBalancerService_impl::startStabilizer(void)
 {
   m_autobalancer->startStabilizer();
