@@ -21,6 +21,9 @@
 #define MAX_TRANSITION_COUNT (static_cast<int>(2/m_dt))
 typedef coil::Guard<coil::Mutex> Guard;
 
+hrp::Vector3 rpos;
+hrp::Vector3 lpos;
+
 // Module specification
 // <rtc-template block="module_spec">
 static const char* impedancecontroller_spec[] =
@@ -55,7 +58,9 @@ ImpedanceController::ImpedanceController(RTC::Manager* manager)
       m_robot(hrp::BodyPtr()),
       m_debugLevel(0),
       dummy(0),
-      use_sh_base_pos_rpy(false)
+      use_sh_base_pos_rpy(false),
+      ex_force(30.0, 0.002, hrp::Vector3::Zero()),
+      in_force(30.0, 0.002, hrp::Vector3::Zero())
 {
     m_service0.impedance(this);
 }
@@ -156,6 +161,8 @@ RTC::ReturnCode_t ImpedanceController::onInitialize()
       abs_forces.insert(std::pair<std::string, hrp::Vector3>(m_forceIn[i]->name(), hrp::Vector3::Zero()));
       abs_moments.insert(std::pair<std::string, hrp::Vector3>(m_forceIn[i]->name(), hrp::Vector3::Zero()));
     }
+    ex_force.reset(abs_forces["lhsensor"] + abs_forces["rhsensor"]);
+    in_force.reset(abs_forces["lhsensor"] - abs_forces["rhsensor"]);
 
     unsigned int dof = m_robot->numJoints();
     for ( unsigned int i = 0 ; i < dof; i++ ){
@@ -548,7 +555,15 @@ void ImpedanceController::calcForceMoment ()
           }
           abs_forces[sensor_name] = sensorR * data_p;
           for ( std::map<std::string, ImpedanceParam>::iterator it = m_impedance_param.begin(); it != m_impedance_param.end(); it++ ) {
-              if ( it->second.sensor_name == sensor_name ) eePos = it->second.target_p0;
+              if ( it->second.sensor_name == sensor_name ) {
+                  if (sensor_name == "rhsensor") {
+                    rpos = it->second.target_p0;
+                  } else if (sensor_name == "lhsensor") {
+                    lpos = it->second.target_p0;
+                  }
+
+                  eePos = it->second.target_p0;
+              }
           }
           abs_moments[sensor_name] = sensorR * data_r + (sensorPos - eePos).cross(abs_forces[sensor_name]);
           // End effector local frame
@@ -558,6 +573,8 @@ void ImpedanceController::calcForceMoment ()
           // World frame
           abs_ref_forces[sensor_name] = ref_data_p;
           abs_ref_moments[sensor_name] = ref_data_r;
+
+
           if ( DEBUGP ) {
             std::cerr << "[" << m_profile.instance_name << "]   abs force  = " << abs_forces[sensor_name].format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "[", "]")) << "[N]" << std::endl;
             std::cerr << "[" << m_profile.instance_name << "]   abs moment = " << abs_moments[sensor_name].format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "[", "]")) << "[Nm]" << std::endl;
@@ -566,6 +583,19 @@ void ImpedanceController::calcForceMoment ()
           }
         }
       }
+    hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
+    hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
+    hrp::Matrix33 rsensorR = rsensor->link->R * rsensor->localR;
+    hrp::Matrix33 lsensorR = lsensor->link->R * lsensor->localR;
+    hrp::Vector3 rdata_r(m_force[2].data[3], m_force[2].data[4], m_force[2].data[5]);
+    hrp::Vector3 ldata_r(m_force[3].data[3], m_force[3].data[4], m_force[3].data[5]);
+    std::cerr
+    << "m = " << (abs_forces["rhsensor"] + abs_forces["lhsensor"])(2)
+    << " rsensor = " << (rsensorR * rdata_r)(1)
+    << " x = " << ((-rsensorR * rdata_r)(1) - (lsensorR * ldata_r)(1) + rpos(0) * abs_forces["rhsensor"](2) + lpos(0) * abs_forces["lhsensor"](2)) / (abs_forces["rhsensor"] + abs_forces["lhsensor"])(2)
+    << " y = " << ((rsensorR * rdata_r)(0) + (lsensorR * ldata_r)(0) + rpos(1) * abs_forces["rhsensor"](2) + lpos(1) * abs_forces["lhsensor"](2)) / (abs_forces["rhsensor"] + abs_forces["lhsensor"])(2)
+    << std::endl;
+      
 };
 
 void ImpedanceController::calcImpedanceControl ()
@@ -615,7 +645,16 @@ void ImpedanceController::calcImpedanceControl ()
 
                 // ref_force/ref_moment and force_gain/moment_gain are expressed in global coordinates. 
                 hrp::Matrix33 eeR = target->R * ee_map[it->first].localR;
-                hrp::Vector3 force_diff = abs_forces[it->second.sensor_name] - abs_ref_forces[it->second.sensor_name];
+                //hrp::Vector3 force_diff = abs_forces[it->second.sensor_name] - abs_ref_forces[it->second.sensor_name];
+
+                ex_force.passFilter(abs_forces["lhsensor"] + abs_forces["rhsensor"] - abs_ref_forces["lhsensor"] - abs_ref_forces["rhsensor"]);
+                in_force.passFilter(abs_forces["lhsensor"] - abs_forces["rhsensor"] - abs_ref_forces["lhsensor"] + abs_ref_forces["rhsensor"]);
+                hrp::Vector3 force_diff = hrp::Vector3::Zero();
+                if (it->second.sensor_name == "lhsensor") {
+                    force_diff = (ex_force.getCurrentValue() * 0.5 + in_force.getCurrentValue() * 0.05);
+                } else if (it->second.sensor_name == "rhsensor") {
+                    force_diff = (ex_force.getCurrentValue() * 0.5 - in_force.getCurrentValue() * 0.05);
+                }
                 hrp::Vector3 moment_diff = abs_moments[it->second.sensor_name] - abs_ref_moments[it->second.sensor_name];
                 param.calcTargetVelocity(vel_p, vel_r, eeR, force_diff, moment_diff, m_dt,
                                          DEBUGP, std::string(m_profile.instance_name), it->first);

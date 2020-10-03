@@ -2198,6 +2198,15 @@ bool AutoBalancer::stopAutoBalancer ()
   }
 }
 
+bool AutoBalancer::startShimpei ()
+{
+    std::cerr << "startShimpei" << std::endl;
+    for (int i = 0; i < 100; i++) {
+        std::cerr << "shimpei!" << std::endl;
+    }
+    return true;
+}
+
 void AutoBalancer::startStabilizer(void)
 {
   st->startStabilizer();

@@ -2136,6 +2136,12 @@ dr=0, dp=0, dw=0, tm=10, wait=True):
         '''
         self.abc_svc.stopAutoBalancer()
 
+    def startShimpei(self):
+        '''!@brief
+        Stop AutoBalancer mode
+        '''
+        self.abc_svc.stopAutoBalancer()
+
     def startStabilizer(self):
         '''!@brief
         Start Stabilzier mode
