@@ -230,7 +230,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_qTouchWall.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
     m_tmp.data.length(35);
-    m_shimpei.data.length(6);
+    m_shimpei.data.length(9);
     diff_q.resize(m_robot->numJoints());
     // for debug output
     m_originRefZmp.data.x = m_originRefZmp.data.y = m_originRefZmp.data.z = 0.0;
@@ -993,12 +993,15 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       /*m_shimpei.data[0] = st->stikp[2].ee_pos[0];//right hand pos
       m_shimpei.data[1] = st->stikp[2].ee_pos[1];
       m_shimpei.data[2] = st->stikp[2].ee_pos[2];*/
-      m_shimpei.data[0] = ikp.at("rarm").shimpei_vec(0);//right hand pos
-      m_shimpei.data[1] = ikp.at("rarm").shimpei_vec(1);//right hand pos
-      m_shimpei.data[2] = ikp.at("rarm").shimpei_vec(2);//right hand pos
-      m_shimpei.data[3] = st->stikp[2].target_ee_p_foot[0];//right hand pos
-      m_shimpei.data[4] = st->stikp[2].target_ee_p_foot[1];
-      m_shimpei.data[5] = st->stikp[2].target_ee_p_foot[2];
+      m_shimpei.data[0] = st->world_force["rhsensor"](0);
+      m_shimpei.data[1] = st->world_force["rhsensor"](1);
+      m_shimpei.data[2] = st->world_force["rhsensor"](2);
+      m_shimpei.data[3] = st->world_force["lhsensor"](0);
+      m_shimpei.data[4] = st->world_force["lhsensor"](1);
+      m_shimpei.data[5] = st->world_force["lhsensor"](2);
+      m_shimpei.data[6] = st->box_weight;//right hand pos
+      m_shimpei.data[7] = st->box_pos(0);
+      m_shimpei.data[8] = st->box_pos(1);
       m_shimpei.tm = m_qRef.tm;
       m_shimpeiOut.write();
       
@@ -1531,6 +1534,24 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
       }
     }
     
+    hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
+    hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
+    hrp::Vector3 box_offset = rsensor->link->p + rsensor->link->R * st->box_rlocal_pos;
+    if (st->box_control_mode && st->box_weight > 1.0 && !gg_is_walking) {
+        hrp::Vector3 hand_axis((st->box_pos - box_offset)(1), -(st->box_pos - box_offset)(0), 0);
+        st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * 0.01, hand_axis) * st->hand_rot;
+        if (st->hand_rot.angle() > 0.2) st->hand_rot.angle() = 0.2;
+        std::cerr << (st->box_pos - box_offset)(0) << std::endl;
+    }
+    for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
+        if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
+         && it->first.find("arm") != std::string::npos ) {
+            it->second.target_r0 = st->hand_rot * it->second.target_r0;
+            ikp["rarm"].target_p0 += (st->hand_rot * rsensor->link->R * (-st->box_rlocal_pos) - rsensor->link->R * (-st->box_rlocal_pos)) * 0.5;
+            ikp["larm"].target_p0 += (st->hand_rot * lsensor->link->R * (-st->box_llocal_pos) - lsensor->link->R * (-st->box_llocal_pos)) * 0.5;
+        }
+    }
+
     float ft = 2.5 * m_dt;
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
@@ -1596,6 +1617,7 @@ void AutoBalancer::updateWalkingVelocityFromHandError (coordinates& tmp_fix_coor
     // TODO : check frame and robot state for this calculation
     if ( gg_is_walking && gg->get_lcg_count() == gg->get_overwrite_check_timing()+2 ) {
         hrp::Vector3 vel_htc(calc_vel_from_hand_error(tmp_fix_coords));
+        std::cerr << vel_htc(0) << " " << vel_htc(1) << " " << vel_htc(2);
         gg->set_offset_velocity_param(vel_htc(0), vel_htc(1) ,vel_htc(2));
     }//  else {
     //     if ( gg_is_walking && gg->get_lcg_count() == static_cast<size_t>(gg->get_default_step_time()/(2*m_dt))-1) {
@@ -2198,15 +2220,6 @@ bool AutoBalancer::stopAutoBalancer ()
   }
 }
 
-bool AutoBalancer::startShimpei ()
-{
-    std::cerr << "startShimpei" << std::endl;
-    for (int i = 0; i < 100; i++) {
-        std::cerr << "shimpei!" << std::endl;
-    }
-    return true;
-}
-
 void AutoBalancer::startStabilizer(void)
 {
   st->startStabilizer();
@@ -2215,6 +2228,11 @@ void AutoBalancer::startStabilizer(void)
 void AutoBalancer::stopStabilizer(void)
 {
   st->stopStabilizer();
+}
+
+void AutoBalancer::startShimpei(void)
+{
+  st->startShimpei();
 }
 
 void AutoBalancer::waitABCTransition()

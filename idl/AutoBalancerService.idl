@@ -660,8 +660,6 @@ module OpenHRP
      */
     boolean stopAutoBalancer();
 
-    boolean startShimpei();
-
     /**
      * @brief Set GaitGenerator parameters
      * @param i_param is input parameter
@@ -753,5 +751,7 @@ module OpenHRP
      * @return
      */
     void stopStabilizer();
+    
+    void startShimpei();
   };
 };

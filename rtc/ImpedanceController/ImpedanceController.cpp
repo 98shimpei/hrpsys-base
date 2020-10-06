@@ -589,13 +589,14 @@ void ImpedanceController::calcForceMoment ()
     hrp::Matrix33 lsensorR = lsensor->link->R * lsensor->localR;
     hrp::Vector3 rdata_r(m_force[2].data[3], m_force[2].data[4], m_force[2].data[5]);
     hrp::Vector3 ldata_r(m_force[3].data[3], m_force[3].data[4], m_force[3].data[5]);
-    std::cerr
-    << "m = " << (abs_forces["rhsensor"] + abs_forces["lhsensor"])(2)
+    /*std::cerr
+    << "!imp! m = " << (abs_forces["rhsensor"] + abs_forces["lhsensor"])(2)
     << " rsensor = " << (rsensorR * rdata_r)(1)
+    << " rpos0 = " << rpos(0)
     << " x = " << ((-rsensorR * rdata_r)(1) - (lsensorR * ldata_r)(1) + rpos(0) * abs_forces["rhsensor"](2) + lpos(0) * abs_forces["lhsensor"](2)) / (abs_forces["rhsensor"] + abs_forces["lhsensor"])(2)
     << " y = " << ((rsensorR * rdata_r)(0) + (lsensorR * ldata_r)(0) + rpos(1) * abs_forces["rhsensor"](2) + lpos(1) * abs_forces["lhsensor"](2)) / (abs_forces["rhsensor"] + abs_forces["lhsensor"])(2)
     << std::endl;
-      
+    */
 };
 
 void ImpedanceController::calcImpedanceControl ()

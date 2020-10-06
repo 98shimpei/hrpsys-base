@@ -2136,12 +2136,6 @@ dr=0, dp=0, dw=0, tm=10, wait=True):
         '''
         self.abc_svc.stopAutoBalancer()
 
-    def startShimpei(self):
-        '''!@brief
-        Stop AutoBalancer mode
-        '''
-        self.abc_svc.stopAutoBalancer()
-
     def startStabilizer(self):
         '''!@brief
         Start Stabilzier mode
@@ -2153,6 +2147,12 @@ dr=0, dp=0, dw=0, tm=10, wait=True):
         Stop Stabilzier mode
         '''
         self.abc_svc.stopStabilizer()
+
+    def startShimpei(self):
+        '''!@brief
+        Stop AutoBalancer mode
+        '''
+        self.abc_svc.startShimpei()
 
     def startImpedance_315_4(self, arm,
                        M_p = 100.0,

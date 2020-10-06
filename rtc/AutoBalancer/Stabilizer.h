@@ -149,6 +149,15 @@ public:
   std::vector<bool> is_foot_touch;
   std::vector<hrp::Vector3> touchdown_d_pos, touchdown_d_rpy;
 
+  std::map<std::string, hrp::Vector3> world_force, world_moment;
+  hrp::Vector3 box_pos_offset; //ignore z axis
+  hrp::Vector3 box_pos; //ignore z axis, box_coordinate
+  hrp::Vector3 box_rlocal_pos;
+  hrp::Vector3 box_llocal_pos;
+  double box_weight;
+  bool box_control_mode;
+  Eigen::AngleAxisd hand_rot;
+
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),
       control_mode(MODE_IDLE),
@@ -176,6 +185,7 @@ public:
   };
   void startStabilizer(void);
   void stopStabilizer(void);
+  void startShimpei(void);
   double calcDampingControl (const double tau_d, const double tau, const double prev_d,
                              const double DD, const double TT);
   hrp::Vector3 calcDampingControl (const hrp::Vector3& prev_d, const hrp::Vector3& TT);

@@ -228,6 +228,18 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   if (sen == NULL) {
     std::cerr << "[" << print_str << "] WARNING! This robot model has no GyroSensor named 'gyrometer'! " << std::endl;
   }
+
+  world_force["rhsensor"] = hrp::Vector3::Zero();
+  world_force["lhsensor"] = hrp::Vector3::Zero();
+  world_moment["rhsensor"] = hrp::Vector3::Zero();
+  world_moment["lhsensor"] = hrp::Vector3::Zero();
+  box_pos = hrp::Vector3::Zero();
+  box_pos_offset = hrp::Vector3::Zero();
+  box_rlocal_pos = hrp::Vector3::Zero();
+  box_llocal_pos = hrp::Vector3::Zero();
+  box_control_mode = false;
+  box_weight = 0;
+  hand_rot = Eigen::AngleAxisd(0, hrp::Vector3::UnitX());
 }
 
 void Stabilizer::execStabilizer()
@@ -895,6 +907,8 @@ void Stabilizer::startStabilizer(void)
       st_abc_transition_interpolator->setGoal(&tmp_ratio, 0.9, true);
       std::cerr << "[" << print_str << "] " << "Start ST"  << std::endl;
       sync_2_st();
+    } else{
+      startShimpei();
     }
   }
   waitSTTransition();
@@ -918,6 +932,20 @@ void Stabilizer::stopStabilizer(void)
   }
   waitSTTransition();
   std::cerr << "[" << print_str << "] " << "Stop ST DONE"  << std::endl;
+}
+
+void Stabilizer::startShimpei(void)
+{
+    std::cerr << "startShimpei" << std::endl;
+    for (int i = 0; i < 100; i++) {
+        std::cerr << "shimpei!" << std::endl;
+    }
+    box_control_mode = true;
+
+    hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
+    hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
+    box_rlocal_pos = rsensor->link->R.inverse() * (box_pos - rsensor->link->p);
+    box_llocal_pos = lsensor->link->R.inverse() * (box_pos - lsensor->link->p);
 }
 
 // Damping control functions
@@ -1792,6 +1820,34 @@ void Stabilizer::calcSwingEEModification ()
     stikp[i].prev_d_pos_swing = stikp[i].d_pos_swing;
     stikp[i].prev_d_rpy_swing = stikp[i].d_rpy_swing;
   }
+
+  hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
+  hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
+  hrp::Matrix33 rsensorR = rsensor->link->R * rsensor->localR;
+  hrp::Matrix33 lsensorR = lsensor->link->R * lsensor->localR;
+  hrp::Vector3 rdata_p(wrenches[2][0], wrenches[2][1], wrenches[2][2]);
+  hrp::Vector3 ldata_p(wrenches[3][0], wrenches[3][1], wrenches[3][2]);
+  hrp::Vector3 rdata_r(wrenches[2][3], wrenches[2][4], wrenches[2][5]);
+  hrp::Vector3 ldata_r(wrenches[3][3], wrenches[3][4], wrenches[3][5]);
+  hrp::Vector3 rpos = rsensor->link->p + rsensor->link->R * rsensor->localPos;
+  hrp::Vector3 lpos = lsensor->link->p + lsensor->link->R * lsensor->localPos;
+  hrp::Matrix33 rrot = rsensor->link->R * rsensor->localR;
+  hrp::Matrix33 lrot = lsensor->link->R * lsensor->localR;
+  world_force["rhsensor"] = rsensorR * rdata_p;
+  world_force["lhsensor"] = lsensorR * ldata_p;
+  world_moment["rhsensor"] = rsensorR * rdata_r;
+  world_moment["lhsensor"] = lsensorR * ldata_r;
+  box_pos = hrp::Vector3((-world_moment["rhsensor"](1) - world_moment["lhsensor"](1) + rpos(0) * world_force["rhsensor"](2) + lpos(0) * world_force["lhsensor"](2)) / (world_force["rhsensor"] + world_force["lhsensor"])(2),
+                         ( world_moment["rhsensor"](0) + world_moment["lhsensor"](0) + rpos(1) * world_force["rhsensor"](2) + lpos(1) * world_force["lhsensor"](2)) / (world_force["rhsensor"] + world_force["lhsensor"])(2),
+                         (lpos + rpos)(2) * 0.5);
+  box_weight = -(world_force["rhsensor"] + world_force["lhsensor"])(2) / 9.8;
+  
+  std::cerr
+  << "!abc! m = " << box_weight
+  << " x = " << box_pos(0)
+  << " y = " << box_pos(1)
+  << std::endl;
+
   if (DEBUGP) {
     std::cerr << "[" << print_str << "] Swing foot control" << std::endl;
     for (size_t i = 0; i < stikp.size(); i++) {

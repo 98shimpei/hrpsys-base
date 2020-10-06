@@ -26,9 +26,9 @@ public:
   void waitFootStepsEarly(CORBA::Double tm);
   CORBA::Boolean startAutoBalancer(const OpenHRP::AutoBalancerService::StrSequence& limbs);
   CORBA::Boolean stopAutoBalancer();
-  CORBA::Boolean startShimpei();
   void startStabilizer(void);
   void stopStabilizer(void);
+  void startShimpei(void);
   CORBA::Boolean setGaitGeneratorParam(const OpenHRP::AutoBalancerService::GaitGeneratorParam& i_param);
   CORBA::Boolean getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGeneratorParam_out i_param);
   CORBA::Boolean setAutoBalancerParam(const OpenHRP::AutoBalancerService::AutoBalancerParam& i_param);
