@@ -149,7 +149,7 @@ public:
   std::vector<bool> is_foot_touch;
   std::vector<hrp::Vector3> touchdown_d_pos, touchdown_d_rpy;
 
-  std::map<std::string, hrp::Vector3> world_force, world_moment;
+  std::map<std::string, boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > > world_force, world_moment;
   hrp::Vector3 box_pos_offset; //ignore z axis
   hrp::Vector3 box_pos; //ignore z axis, box_coordinate
   hrp::Vector3 box_rlocal_pos;

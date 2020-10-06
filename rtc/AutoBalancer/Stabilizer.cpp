@@ -229,10 +229,10 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
     std::cerr << "[" << print_str << "] WARNING! This robot model has no GyroSensor named 'gyrometer'! " << std::endl;
   }
 
-  world_force["rhsensor"] = hrp::Vector3::Zero();
-  world_force["lhsensor"] = hrp::Vector3::Zero();
-  world_moment["rhsensor"] = hrp::Vector3::Zero();
-  world_moment["lhsensor"] = hrp::Vector3::Zero();
+  world_force["rhsensor"] = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(10.0, 0.002, hrp::Vector3::Zero()));
+  world_force["lhsensor"] = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(10.0, 0.002, hrp::Vector3::Zero()));
+  world_moment["rhsensor"] = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(10.0, 0.002, hrp::Vector3::Zero()));
+  world_moment["lhsensor"] = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(10.0, 0.002, hrp::Vector3::Zero()));
   box_pos = hrp::Vector3::Zero();
   box_pos_offset = hrp::Vector3::Zero();
   box_rlocal_pos = hrp::Vector3::Zero();
@@ -1833,14 +1833,14 @@ void Stabilizer::calcSwingEEModification ()
   hrp::Vector3 lpos = lsensor->link->p + lsensor->link->R * lsensor->localPos;
   hrp::Matrix33 rrot = rsensor->link->R * rsensor->localR;
   hrp::Matrix33 lrot = lsensor->link->R * lsensor->localR;
-  world_force["rhsensor"] = rsensorR * rdata_p;
-  world_force["lhsensor"] = lsensorR * ldata_p;
-  world_moment["rhsensor"] = rsensorR * rdata_r;
-  world_moment["lhsensor"] = lsensorR * ldata_r;
-  box_pos = hrp::Vector3((-world_moment["rhsensor"](1) - world_moment["lhsensor"](1) + rpos(0) * world_force["rhsensor"](2) + lpos(0) * world_force["lhsensor"](2)) / (world_force["rhsensor"] + world_force["lhsensor"])(2),
-                         ( world_moment["rhsensor"](0) + world_moment["lhsensor"](0) + rpos(1) * world_force["rhsensor"](2) + lpos(1) * world_force["lhsensor"](2)) / (world_force["rhsensor"] + world_force["lhsensor"])(2),
+  world_force["rhsensor"]->passFilter(rsensorR * rdata_p);
+  world_force["lhsensor"]->passFilter(lsensorR * ldata_p);
+  world_moment["rhsensor"]->passFilter(rsensorR * rdata_r);
+  world_moment["lhsensor"]->passFilter(lsensorR * ldata_r);
+  box_pos = hrp::Vector3((-world_moment["rhsensor"]->getCurrentValue()(1) - world_moment["lhsensor"]->getCurrentValue()(1) + rpos(0) * world_force["rhsensor"]->getCurrentValue()(2) + lpos(0) * world_force["lhsensor"]->getCurrentValue()(2)) / (world_force["rhsensor"]->getCurrentValue() + world_force["lhsensor"]->getCurrentValue())(2),
+                         ( world_moment["rhsensor"]->getCurrentValue()(0) + world_moment["lhsensor"]->getCurrentValue()(0) + rpos(1) * world_force["rhsensor"]->getCurrentValue()(2) + lpos(1) * world_force["lhsensor"]->getCurrentValue()(2)) / (world_force["rhsensor"]->getCurrentValue() + world_force["lhsensor"]->getCurrentValue())(2),
                          (lpos + rpos)(2) * 0.5);
-  box_weight = -(world_force["rhsensor"] + world_force["lhsensor"])(2) / 9.8;
+  box_weight = -(world_force["rhsensor"]->getCurrentValue() + world_force["lhsensor"]->getCurrentValue())(2) / 9.8;
   
   std::cerr
   << "!abc! m = " << box_weight

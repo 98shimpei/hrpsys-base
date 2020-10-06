@@ -993,12 +993,12 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       /*m_shimpei.data[0] = st->stikp[2].ee_pos[0];//right hand pos
       m_shimpei.data[1] = st->stikp[2].ee_pos[1];
       m_shimpei.data[2] = st->stikp[2].ee_pos[2];*/
-      m_shimpei.data[0] = st->world_force["rhsensor"](0);
-      m_shimpei.data[1] = st->world_force["rhsensor"](1);
-      m_shimpei.data[2] = st->world_force["rhsensor"](2);
-      m_shimpei.data[3] = st->world_force["lhsensor"](0);
-      m_shimpei.data[4] = st->world_force["lhsensor"](1);
-      m_shimpei.data[5] = st->world_force["lhsensor"](2);
+      m_shimpei.data[0] = st->world_force["rhsensor"]->getCurrentValue()(0);
+      m_shimpei.data[1] = st->world_force["rhsensor"]->getCurrentValue()(1);
+      m_shimpei.data[2] = st->world_force["rhsensor"]->getCurrentValue()(2);
+      m_shimpei.data[3] = st->world_force["lhsensor"]->getCurrentValue()(0);
+      m_shimpei.data[4] = st->world_force["lhsensor"]->getCurrentValue()(1);
+      m_shimpei.data[5] = st->world_force["lhsensor"]->getCurrentValue()(2);
       m_shimpei.data[6] = st->box_weight;//right hand pos
       m_shimpei.data[7] = st->box_pos(0);
       m_shimpei.data[8] = st->box_pos(1);
@@ -1539,7 +1539,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     hrp::Vector3 box_offset = rsensor->link->p + rsensor->link->R * st->box_rlocal_pos;
     if (st->box_control_mode && st->box_weight > 1.0 && !gg_is_walking) {
         hrp::Vector3 hand_axis((st->box_pos - box_offset)(1), -(st->box_pos - box_offset)(0), 0);
-        st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * 0.01, hand_axis) * st->hand_rot;
+        st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * 0.05, hand_axis) * st->hand_rot;
         if (st->hand_rot.angle() > 0.2) st->hand_rot.angle() = 0.2;
         std::cerr << (st->box_pos - box_offset)(0) << std::endl;
     }
