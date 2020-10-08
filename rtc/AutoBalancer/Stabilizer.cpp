@@ -240,6 +240,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   box_control_mode = false;
   box_weight = 0;
   hand_rot = Eigen::AngleAxisd(0, hrp::Vector3::UnitX());
+  box_balancer_gain = 0;
 }
 
 void Stabilizer::execStabilizer()
@@ -907,8 +908,6 @@ void Stabilizer::startStabilizer(void)
       st_abc_transition_interpolator->setGoal(&tmp_ratio, 0.9, true);
       std::cerr << "[" << print_str << "] " << "Start ST"  << std::endl;
       sync_2_st();
-    } else{
-      startShimpei();
     }
   }
   waitSTTransition();
@@ -934,9 +933,9 @@ void Stabilizer::stopStabilizer(void)
   std::cerr << "[" << print_str << "] " << "Stop ST DONE"  << std::endl;
 }
 
-void Stabilizer::startShimpei(void)
+void Stabilizer::startBoxBalancer(double gain)
 {
-    std::cerr << "startShimpei" << std::endl;
+    std::cerr << "startBoxBalancer" << std::endl;
     for (int i = 0; i < 100; i++) {
         std::cerr << "shimpei!" << std::endl;
     }
@@ -946,6 +945,13 @@ void Stabilizer::startShimpei(void)
     hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
     box_rlocal_pos = rsensor->link->R.inverse() * (box_pos - rsensor->link->p);
     box_llocal_pos = lsensor->link->R.inverse() * (box_pos - lsensor->link->p);
+    box_balancer_gain = gain;
+}
+
+void Stabilizer::stopBoxBalancer(void)
+{
+    std::cerr << "stopBoxBalancer" << std::endl;
+    box_control_mode = false;
 }
 
 // Damping control functions
@@ -1779,7 +1785,7 @@ void Stabilizer::calcSwingEEModification ()
         double lvlimit = -100 * 1e-3 * dt, uvlimit = 100 * 1e-3 * dt; // 50 [mm/s]
         hrp::Vector3 limit_by_lvlimit = stikp[i].prev_d_pos_swing + lvlimit * hrp::Vector3::Ones();
         hrp::Vector3 limit_by_uvlimit = stikp[i].prev_d_pos_swing + uvlimit * hrp::Vector3::Ones();
-        if (stikp[i].ee_name == "rarm") {
+        if (stikp[i].ee_name == "rarm" || stikp[i].ee_name == "larm") {
           if (hoge > 0) {
             hoge--;
           } else {
@@ -1842,11 +1848,13 @@ void Stabilizer::calcSwingEEModification ()
                          (lpos + rpos)(2) * 0.5);
   box_weight = -(world_force["rhsensor"]->getCurrentValue() + world_force["lhsensor"]->getCurrentValue())(2) / 9.8;
   
+  /*
   std::cerr
   << "!abc! m = " << box_weight
   << " x = " << box_pos(0)
   << " y = " << box_pos(1)
   << std::endl;
+  */
 
   if (DEBUGP) {
     std::cerr << "[" << print_str << "] Swing foot control" << std::endl;

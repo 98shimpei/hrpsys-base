@@ -69,9 +69,14 @@ void AutoBalancerService_impl::stopStabilizer(void)
   m_autobalancer->stopStabilizer();
 }
 
-void AutoBalancerService_impl::startShimpei(void)
+void AutoBalancerService_impl::startBoxBalancer(CORBA::Double gain)
 {
-  m_autobalancer->startShimpei();
+  m_autobalancer->startBoxBalancer(gain);
+}
+
+void AutoBalancerService_impl::stopBoxBalancer(void)
+{
+  m_autobalancer->stopBoxBalancer();
 }
 
 CORBA::Boolean AutoBalancerService_impl::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::GaitGeneratorParam& i_param)

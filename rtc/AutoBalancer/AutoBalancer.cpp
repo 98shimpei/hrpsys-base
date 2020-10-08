@@ -1537,11 +1537,14 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
     hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
     hrp::Vector3 box_offset = rsensor->link->p + rsensor->link->R * st->box_rlocal_pos;
-    if (st->box_control_mode && st->box_weight > 1.0 && !gg_is_walking) {
-        hrp::Vector3 hand_axis((st->box_pos - box_offset)(1), -(st->box_pos - box_offset)(0), 0);
-        st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * 0.05, hand_axis) * st->hand_rot;
-        if (st->hand_rot.angle() > 0.2) st->hand_rot.angle() = 0.2;
-        std::cerr << (st->box_pos - box_offset)(0) << std::endl;
+    if (!gg_is_walking) {
+        if (st->box_control_mode && st->box_weight > 1.0) {
+            hrp::Vector3 hand_axis((st->box_pos - box_offset)(1), -(st->box_pos - box_offset)(0), 0);
+            st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * st->box_balancer_gain, hand_axis) * st->hand_rot;
+            if (st->hand_rot.angle() > 0.2) st->hand_rot.angle() = 0.2;
+        } else if (!st->box_control_mode) {
+            st->hand_rot.angle() = st->box_balancer_gain * st->hand_rot.angle();
+        }
     }
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
@@ -2230,9 +2233,14 @@ void AutoBalancer::stopStabilizer(void)
   st->stopStabilizer();
 }
 
-void AutoBalancer::startShimpei(void)
+void AutoBalancer::startBoxBalancer(double gain)
 {
-  st->startShimpei();
+  st->startBoxBalancer(gain);
+}
+
+void AutoBalancer::stopBoxBalancer(void)
+{
+  st->stopBoxBalancer();
 }
 
 void AutoBalancer::waitABCTransition()

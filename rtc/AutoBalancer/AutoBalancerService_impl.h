@@ -28,7 +28,8 @@ public:
   CORBA::Boolean stopAutoBalancer();
   void startStabilizer(void);
   void stopStabilizer(void);
-  void startShimpei(void);
+  void startBoxBalancer(CORBA::Double);
+  void stopBoxBalancer(void);
   CORBA::Boolean setGaitGeneratorParam(const OpenHRP::AutoBalancerService::GaitGeneratorParam& i_param);
   CORBA::Boolean getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGeneratorParam_out i_param);
   CORBA::Boolean setAutoBalancerParam(const OpenHRP::AutoBalancerService::AutoBalancerParam& i_param);

@@ -752,6 +752,8 @@ module OpenHRP
      */
     void stopStabilizer();
     
-    void startShimpei();
+    void startBoxBalancer(in double gain);
+    
+    void stopBoxBalancer();
   };
 };

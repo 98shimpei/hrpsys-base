@@ -157,6 +157,7 @@ public:
   double box_weight;
   bool box_control_mode;
   Eigen::AngleAxisd hand_rot;
+  double box_balancer_gain;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),
@@ -185,7 +186,8 @@ public:
   };
   void startStabilizer(void);
   void stopStabilizer(void);
-  void startShimpei(void);
+  void startBoxBalancer(double gain);
+  void stopBoxBalancer(void);
   double calcDampingControl (const double tau_d, const double tau, const double prev_d,
                              const double DD, const double TT);
   hrp::Vector3 calcDampingControl (const hrp::Vector3& prev_d, const hrp::Vector3& TT);
