@@ -993,12 +993,12 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       /*m_shimpei.data[0] = st->stikp[2].ee_pos[0];//right hand pos
       m_shimpei.data[1] = st->stikp[2].ee_pos[1];
       m_shimpei.data[2] = st->stikp[2].ee_pos[2];*/
-      m_shimpei.data[0] = st->world_force["rhsensor"](0);
-      m_shimpei.data[1] = st->world_force["rhsensor"](1);
-      m_shimpei.data[2] = st->world_force["rhsensor"](2);
-      m_shimpei.data[3] = st->world_force["lhsensor"](0);
-      m_shimpei.data[4] = st->world_force["lhsensor"](1);
-      m_shimpei.data[5] = st->world_force["lhsensor"](2);
+      m_shimpei.data[0] = st->world_force["rhsensor"]->getCurrentValue()(0);
+      m_shimpei.data[1] = st->world_force["rhsensor"]->getCurrentValue()(1);
+      m_shimpei.data[2] = st->world_force["rhsensor"]->getCurrentValue()(2);
+      m_shimpei.data[3] = st->world_force["lhsensor"]->getCurrentValue()(0);
+      m_shimpei.data[4] = st->world_force["lhsensor"]->getCurrentValue()(1);
+      m_shimpei.data[5] = st->world_force["lhsensor"]->getCurrentValue()(2);
       m_shimpei.data[6] = st->box_weight;//right hand pos
       m_shimpei.data[7] = st->box_pos(0);
       m_shimpei.data[8] = st->box_pos(1);
@@ -1537,11 +1537,14 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
     hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
     hrp::Vector3 box_offset = rsensor->link->p + rsensor->link->R * st->box_rlocal_pos;
-    if (st->box_control_mode && st->box_weight > 1.0 && !gg_is_walking) {
-        hrp::Vector3 hand_axis((st->box_pos - box_offset)(1), -(st->box_pos - box_offset)(0), 0);
-        st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * 0.01, hand_axis) * st->hand_rot;
-        if (st->hand_rot.angle() > 0.2) st->hand_rot.angle() = 0.2;
-        std::cerr << (st->box_pos - box_offset)(0) << std::endl;
+    if (!gg_is_walking) {
+        if (st->box_control_mode && st->box_weight > 1.0) {
+            hrp::Vector3 hand_axis((st->box_pos - box_offset)(1), -(st->box_pos - box_offset)(0), 0);
+            st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * st->box_balancer_gain, hand_axis) * st->hand_rot;
+            if (st->hand_rot.angle() > 0.2) st->hand_rot.angle() = 0.2;
+        } else if (!st->box_control_mode) {
+            st->hand_rot.angle() = st->box_balancer_gain * st->hand_rot.angle();
+        }
     }
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
@@ -2230,9 +2233,14 @@ void AutoBalancer::stopStabilizer(void)
   st->stopStabilizer();
 }
 
-void AutoBalancer::startShimpei(void)
+void AutoBalancer::startBoxBalancer(double gain)
 {
-  st->startShimpei();
+  st->startBoxBalancer(gain);
+}
+
+void AutoBalancer::stopBoxBalancer(void)
+{
+  st->stopBoxBalancer();
 }
 
 void AutoBalancer::waitABCTransition()
