@@ -230,7 +230,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_qTouchWall.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
     m_tmp.data.length(35);
-    m_shimpei.data.length(9);
+    m_shimpei.data.length(11);
     diff_q.resize(m_robot->numJoints());
     // for debug output
     m_originRefZmp.data.x = m_originRefZmp.data.y = m_originRefZmp.data.z = 0.0;
@@ -990,6 +990,9 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_tmp.tm = m_qRef.tm;
       m_tmpOut.write();
 
+      hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
+      hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
+      hrp::Vector3 box_offset = rsensor->link->p + rsensor->link->R * st->box_rlocal_pos;
       /*m_shimpei.data[0] = st->stikp[2].ee_pos[0];//right hand pos
       m_shimpei.data[1] = st->stikp[2].ee_pos[1];
       m_shimpei.data[2] = st->stikp[2].ee_pos[2];*/
@@ -1002,6 +1005,8 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_shimpei.data[6] = st->box_weight;//right hand pos
       m_shimpei.data[7] = st->box_pos(0);
       m_shimpei.data[8] = st->box_pos(1);
+      m_shimpei.data[9] = box_offset(0);
+      m_shimpei.data[10] = box_offset(1);
       m_shimpei.tm = m_qRef.tm;
       m_shimpeiOut.write();
       
