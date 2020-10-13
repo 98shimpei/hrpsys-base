@@ -125,6 +125,7 @@ class AutoBalancer
   void stopStabilizer(void);
   void startBoxBalancer(double gain);
   void stopBoxBalancer(void);
+  double getBoxWeight(void);
 
 
  protected:

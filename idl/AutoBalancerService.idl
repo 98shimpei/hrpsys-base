@@ -755,5 +755,7 @@ module OpenHRP
     void startBoxBalancer(in double gain);
     
     void stopBoxBalancer();
+
+    double getBoxWeight();
   };
 };

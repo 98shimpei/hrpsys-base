@@ -2248,6 +2248,11 @@ void AutoBalancer::stopBoxBalancer(void)
   st->stopBoxBalancer();
 }
 
+double AutoBalancer::getBoxWeight(void)
+{
+  return st->getBoxWeight();
+}
+
 void AutoBalancer::waitABCTransition()
 {
   while (!transition_interpolator->isEmpty()) usleep(1000);

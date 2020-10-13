@@ -188,6 +188,7 @@ public:
   void stopStabilizer(void);
   void startBoxBalancer(double gain);
   void stopBoxBalancer(void);
+  double getBoxWeight(void);
   double calcDampingControl (const double tau_d, const double tau, const double prev_d,
                              const double DD, const double TT);
   hrp::Vector3 calcDampingControl (const hrp::Vector3& prev_d, const hrp::Vector3& TT);

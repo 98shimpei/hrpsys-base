@@ -79,6 +79,11 @@ void AutoBalancerService_impl::stopBoxBalancer(void)
   m_autobalancer->stopBoxBalancer();
 }
 
+CORBA::Double AutoBalancerService_impl::getBoxWeight(void)
+{
+  return m_autobalancer->getBoxWeight();
+}
+
 CORBA::Boolean AutoBalancerService_impl::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::GaitGeneratorParam& i_param)
 {
   return m_autobalancer->setGaitGeneratorParam(i_param);

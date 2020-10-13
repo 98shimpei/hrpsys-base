@@ -2160,6 +2160,12 @@ dr=0, dp=0, dw=0, tm=10, wait=True):
         '''
         self.abc_svc.startBoxBalancer()
 
+    def getBoxWeight(self):
+        '''!@brief
+        Get Box Weight
+        '''
+        return self.abc_svc.getBoxWeight()
+
     def startImpedance_315_4(self, arm,
                        M_p = 100.0,
                        D_p = 100.0,
