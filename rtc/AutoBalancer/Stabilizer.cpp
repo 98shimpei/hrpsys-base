@@ -241,6 +241,8 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   box_weight = 0;
   hand_rot = Eigen::AngleAxisd(0, hrp::Vector3::UnitX());
   box_balancer_gain = 0;
+  box_pos_camera = hrp::Vector3::Zero();
+  box_rot_camera = hrp::Matrix33::Identity();
 }
 
 void Stabilizer::execStabilizer()
@@ -952,6 +954,12 @@ void Stabilizer::stopBoxBalancer(void)
 {
     std::cerr << "stopBoxBalancer" << std::endl;
     box_control_mode = false;
+}
+
+double Stabilizer::getBoxWeight(void)
+{
+    std::cerr << "box_weight: " << box_weight;
+    return box_weight;
 }
 
 // Damping control functions
@@ -1843,18 +1851,26 @@ void Stabilizer::calcSwingEEModification ()
   world_force["lhsensor"]->passFilter(lsensorR * ldata_p);
   world_moment["rhsensor"]->passFilter(rsensorR * rdata_r);
   world_moment["lhsensor"]->passFilter(lsensorR * ldata_r);
+
+  /*
   box_pos = hrp::Vector3((-world_moment["rhsensor"]->getCurrentValue()(1) - world_moment["lhsensor"]->getCurrentValue()(1) + rpos(0) * world_force["rhsensor"]->getCurrentValue()(2) + lpos(0) * world_force["lhsensor"]->getCurrentValue()(2)) / (world_force["rhsensor"]->getCurrentValue() + world_force["lhsensor"]->getCurrentValue())(2),
                          ( world_moment["rhsensor"]->getCurrentValue()(0) + world_moment["lhsensor"]->getCurrentValue()(0) + rpos(1) * world_force["rhsensor"]->getCurrentValue()(2) + lpos(1) * world_force["lhsensor"]->getCurrentValue()(2)) / (world_force["rhsensor"]->getCurrentValue() + world_force["lhsensor"]->getCurrentValue())(2),
                          (lpos + rpos)(2) * 0.5);
-  box_weight = -(world_force["rhsensor"]->getCurrentValue() + world_force["lhsensor"]->getCurrentValue())(2) / 9.8;
-  
-  /*
-  std::cerr
-  << "!abc! m = " << box_weight
-  << " x = " << box_pos(0)
-  << " y = " << box_pos(1)
-  << std::endl;
   */
+
+  hrp::Vector3 wr = hrp::Vector3(0, 0, world_force["rhsensor"]->getCurrentValue()(2));
+  hrp::Vector3 wl = hrp::Vector3(0, 0, world_force["lhsensor"]->getCurrentValue()(2));
+  //hrp::Vector3 rh_origin_moment = -world_moment["rhsensor"]->getCurrentValue() + rpos.cross(-world_force["rhsensor"]->getCurrentValue());
+  //hrp::Vector3 lh_origin_moment = -world_moment["lhsensor"]->getCurrentValue() + lpos.cross(-world_force["lhsensor"]->getCurrentValue());
+  hrp::Vector3 rh_origin_moment = -world_moment["rhsensor"]->getCurrentValue() + rpos.cross(-wr);
+  hrp::Vector3 lh_origin_moment = -world_moment["lhsensor"]->getCurrentValue() + lpos.cross(-wl);
+  hrp::Vector3 origin_moment = rh_origin_moment + lh_origin_moment;
+  box_pos = hrp::Vector3(
+    origin_moment(1) /  (world_force["rhsensor"]->getCurrentValue() + world_force["lhsensor"]->getCurrentValue())(2),
+    origin_moment(0) / -(world_force["rhsensor"]->getCurrentValue() + world_force["lhsensor"]->getCurrentValue())(2),
+    (lpos + rpos)(2) * 0.5);
+
+  box_weight = -(world_force["rhsensor"]->getCurrentValue() + world_force["lhsensor"]->getCurrentValue())(2) / 9.8;
 
   if (DEBUGP) {
     std::cerr << "[" << print_str << "] Swing foot control" << std::endl;

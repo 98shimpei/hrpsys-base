@@ -75,6 +75,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_qRefSeqIn("qRefSeq", m_qRefSeq),
       m_landingHeightIn("landingHeight", m_landingHeight),
       m_steppableRegionIn("steppableRegion", m_steppableRegion),
+      m_boxPoseIn("boxPose", m_boxPose),
       m_qOut("q", m_qRef),
       m_qAbcOut("qAbc", m_qAbc),
       m_tauOut("tau", m_tau),
@@ -146,6 +147,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("qRefSeq", m_qRefSeqIn);
     addInPort("landingHeight", m_landingHeightIn);
     addInPort("steppableRegion", m_steppableRegionIn);
+    addInPort("boxPose", m_boxPoseIn);
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
@@ -773,6 +775,22 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         {
           gg->set_steppable_region(m_steppableRegion);
         }
+    }
+
+    if (m_boxPoseIn.isNew()) {
+      m_boxPoseIn.read();
+      std::cerr << "boxPose" << std::endl;
+      st->box_pos_camera = hrp::Vector3(m_boxPose.data.px, m_boxPose.data.py, m_boxPose.data.pz);
+      Eigen::Quaternion<double> tmp(m_boxPose.data.rw, m_boxPose.data.rx, m_boxPose.data.ry, m_boxPose.data.rz);
+      st->box_rot_camera = tmp.matrix();
+      /*std::cerr <<
+        m_boxPose.data.rx << " " <<
+        m_boxPose.data.ry << " " <<
+        m_boxPose.data.rz << " " <<
+        m_boxPose.data.rw << " " << std::endl;
+      std::cerr << tmp.x() << " " << tmp.y() << " " << tmp.z() << " " << tmp.w() << std::endl;*/
+      std::cerr << st->box_pos_camera << std::endl;
+      std::cerr << st->box_rot_camera << std::endl;
     }
 
     // Calculation
@@ -2246,6 +2264,11 @@ void AutoBalancer::startBoxBalancer(double gain)
 void AutoBalancer::stopBoxBalancer(void)
 {
   st->stopBoxBalancer();
+}
+
+double AutoBalancer::getBoxWeight(void)
+{
+  return st->getBoxWeight();
 }
 
 void AutoBalancer::waitABCTransition()

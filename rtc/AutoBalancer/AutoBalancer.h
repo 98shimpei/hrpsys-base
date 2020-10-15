@@ -125,6 +125,7 @@ class AutoBalancer
   void stopStabilizer(void);
   void startBoxBalancer(double gain);
   void stopBoxBalancer(void);
+  double getBoxWeight(void);
 
 
  protected:
@@ -169,6 +170,8 @@ class AutoBalancer
   InPort<OpenHRP::TimedLandingPosition> m_landingHeightIn;
   OpenHRP::TimedSteppableRegion m_steppableRegion;
   InPort<OpenHRP::TimedSteppableRegion> m_steppableRegionIn;
+  OpenHRP::TimedQuatPose m_boxPose;
+  InPort<OpenHRP::TimedQuatPose> m_boxPoseIn;
 
   // for debug
   TimedPoint3D m_cog;
