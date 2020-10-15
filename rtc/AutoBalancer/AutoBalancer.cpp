@@ -780,17 +780,23 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     if (m_boxPoseIn.isNew()) {
       m_boxPoseIn.read();
       std::cerr << "boxPose" << std::endl;
-      st->box_pos_camera = hrp::Vector3(m_boxPose.data.px, m_boxPose.data.py, m_boxPose.data.pz);
-      Eigen::Quaternion<double> tmp(m_boxPose.data.rw, m_boxPose.data.rx, m_boxPose.data.ry, m_boxPose.data.rz);
-      st->box_rot_camera = tmp.matrix();
-      /*std::cerr <<
-        m_boxPose.data.rx << " " <<
-        m_boxPose.data.ry << " " <<
-        m_boxPose.data.rz << " " <<
-        m_boxPose.data.rw << " " << std::endl;
-      std::cerr << tmp.x() << " " << tmp.y() << " " << tmp.z() << " " << tmp.w() << std::endl;*/
-      std::cerr << st->box_pos_camera << std::endl;
-      std::cerr << st->box_rot_camera << std::endl;
+      std::cerr << "box exist " << m_boxPose.data.existence << std::endl;
+      for (int i = 0; i < m_boxPose.data.poses.length(); i++){
+        int id = m_boxPose.data.poses[i].id;
+        st->box_pos_camera[id] = hrp::Vector3(
+          m_boxPose.data.poses[i].px,
+          m_boxPose.data.poses[i].py,
+          m_boxPose.data.poses[i].pz);
+        Eigen::Quaternion<double> tmp(
+          m_boxPose.data.poses[i].rw,
+          m_boxPose.data.poses[i].rx,
+          m_boxPose.data.poses[i].ry,
+          m_boxPose.data.poses[i].rz);
+        st->box_rot_camera[id] = tmp.matrix();
+        std::cerr << "id: " << id << std::endl;
+        std::cerr << st->box_pos_camera[id] << std::endl;
+        std::cerr << st->box_rot_camera[id] << std::endl;
+      }
     }
 
     // Calculation

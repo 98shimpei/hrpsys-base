@@ -22,7 +22,7 @@ module OpenHRP
     sequence<sequence<long> > data;
   };
 
-  struct QuatPose
+  struct BoxPose
   {
     double px;
     double py;
@@ -31,6 +31,13 @@ module OpenHRP
     double ry;
     double rz;
     double rw;
+    unsigned short id;
+  };
+
+  struct BoxPoses
+  {
+    sequence<BoxPose> poses;
+    boolean existence;
   };
 
 
@@ -105,10 +112,10 @@ module OpenHRP
   // Timed data types
   //------------------------------------------------------------
 
-  struct TimedQuatPose
+  struct TimedBoxPoses
   {
     RTC::Time tm;
-    QuatPose data;
+    BoxPoses data;
   };
 
   struct TimedQuaternion

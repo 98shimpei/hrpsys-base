@@ -170,8 +170,8 @@ class AutoBalancer
   InPort<OpenHRP::TimedLandingPosition> m_landingHeightIn;
   OpenHRP::TimedSteppableRegion m_steppableRegion;
   InPort<OpenHRP::TimedSteppableRegion> m_steppableRegionIn;
-  OpenHRP::TimedQuatPose m_boxPose;
-  InPort<OpenHRP::TimedQuatPose> m_boxPoseIn;
+  OpenHRP::TimedBoxPoses m_boxPose;
+  InPort<OpenHRP::TimedBoxPoses> m_boxPoseIn;
 
   // for debug
   TimedPoint3D m_cog;

@@ -241,8 +241,6 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   box_weight = 0;
   hand_rot = Eigen::AngleAxisd(0, hrp::Vector3::UnitX());
   box_balancer_gain = 0;
-  box_pos_camera = hrp::Vector3::Zero();
-  box_rot_camera = hrp::Matrix33::Identity();
 }
 
 void Stabilizer::execStabilizer()
