@@ -22,6 +22,17 @@ module OpenHRP
     sequence<sequence<long> > data;
   };
 
+  struct QuatPose
+  {
+    double px;
+    double py;
+    double pz;
+    double rx;
+    double ry;
+    double rz;
+    double rw;
+  };
+
 
   // Additional data type definisions disscussed in [openrtm-users 02915] mailing list.
   // These should be commited in ExtendedDataTypes.idl
@@ -93,6 +104,12 @@ module OpenHRP
   //------------------------------------------------------------
   // Timed data types
   //------------------------------------------------------------
+
+  struct TimedQuatPose
+  {
+    RTC::Time tm;
+    QuatPose data;
+  };
 
   struct TimedQuaternion
   {
