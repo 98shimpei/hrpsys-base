@@ -780,17 +780,38 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     if (m_boxPoseIn.isNew()) {
       m_boxPoseIn.read();
       std::cerr << "boxPose" << std::endl;
-      st->box_pos_camera = hrp::Vector3(m_boxPose.data.px, m_boxPose.data.py, m_boxPose.data.pz);
-      Eigen::Quaternion<double> tmp(m_boxPose.data.rw, m_boxPose.data.rx, m_boxPose.data.ry, m_boxPose.data.rz);
-      st->box_rot_camera = tmp.matrix();
-      /*std::cerr <<
-        m_boxPose.data.rx << " " <<
-        m_boxPose.data.ry << " " <<
-        m_boxPose.data.rz << " " <<
-        m_boxPose.data.rw << " " << std::endl;
-      std::cerr << tmp.x() << " " << tmp.y() << " " << tmp.z() << " " << tmp.w() << std::endl;*/
-      std::cerr << st->box_pos_camera << std::endl;
-      std::cerr << st->box_rot_camera << std::endl;
+      std::cerr << "box exist " << m_boxPose.data.existence << std::endl;
+
+      // get keys
+      std::list<int> keys;
+      for (std::map<int, hrp::Vector3>::iterator it = st->box_pos_camera.begin(); it != st->box_pos_camera.end(); ++it) {
+        keys.push_back(it->first);
+      }
+
+      for (int i = 0; i < m_boxPose.data.poses.length(); i++){
+        int id = m_boxPose.data.poses[i].id;
+        st->box_pos_camera[id] = hrp::Vector3(
+          m_boxPose.data.poses[i].px,
+          m_boxPose.data.poses[i].py,
+          m_boxPose.data.poses[i].pz);
+        Eigen::Quaternion<double> tmp(
+          m_boxPose.data.poses[i].rw,
+          m_boxPose.data.poses[i].rx,
+          m_boxPose.data.poses[i].ry,
+          m_boxPose.data.poses[i].rz);
+        st->box_rot_camera[id] = tmp.matrix();
+        std::cerr << "id: " << id << std::endl;
+        std::cerr << st->box_pos_camera[id] << std::endl;
+        std::cerr << st->box_rot_camera[id] << std::endl;
+        keys.remove(id);
+      }
+
+      for (std::list<int>::iterator it = keys.begin(); it != keys.end(); ++it) {
+        //いなくなった時の処理
+        int id = *it;
+        st->box_pos_camera.erase(id);
+        st->box_rot_camera.erase(id);
+      }
     }
 
     // Calculation
@@ -1561,13 +1582,25 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
     hrp::Vector3 box_offset = rsensor->link->p + rsensor->link->R * st->box_rlocal_pos;
     if (!gg_is_walking) {
-        if (st->box_control_mode && st->box_weight > 1.0) {
-            hrp::Vector3 hand_axis((st->box_pos - box_offset)(1), -(st->box_pos - box_offset)(0), 0);
-            st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * st->box_balancer_gain, hand_axis) * st->hand_rot;
-            if (st->hand_rot.angle() > 0.2) st->hand_rot.angle() = 0.2;
-        } else if (!st->box_control_mode) {
-            st->hand_rot.angle() = st->box_balancer_gain * st->hand_rot.angle();
-        }
+      if (st->box_control_mode && st->box_weight > 1.0) {
+          // hrp::Vector3 hand_axis((st->box_pos - box_offset)(1), -(st->box_pos - box_offset)(0), 0);
+          // st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * st->box_balancer_gain, hand_axis) * st->hand_rot;
+          if (st->box_rot_camera_offset.find(0) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(0) != st->box_rot_camera.end()){
+            Eigen::AngleAxisd hand_rot_dest;
+            //hand_rot_dest = st->box_rot_camera[0].transpose() * st->box_rot_camera_offset[0];
+            //hand_rot_dest.angle() = hand_rot_dest.angle() * st->box_balancer_gain;
+            //st->hand_rot = st->hand_rot * hand_rot_dest;
+
+            hand_rot_dest = st->box_rot_camera_offset[0].transpose() * st->box_rot_camera[0];
+            hand_rot_dest = hrp::Matrix33(st->hand_rot).transpose() * hand_rot_dest;
+            hand_rot_dest.angle() = hand_rot_dest.angle() * st->box_balancer_gain;
+            st->hand_rot = st->hand_rot * hand_rot_dest;
+          }
+
+          if (st->hand_rot.angle() > 0.2) st->hand_rot.angle() = 0.2;
+      } else if (!st->box_control_mode) {
+          st->hand_rot.angle() = st->box_balancer_gain * st->hand_rot.angle();
+      }
     }
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
