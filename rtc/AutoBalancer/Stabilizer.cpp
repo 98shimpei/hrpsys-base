@@ -946,6 +946,10 @@ void Stabilizer::startBoxBalancer(double gain)
     box_rlocal_pos = rsensor->link->R.inverse() * (box_pos - rsensor->link->p);
     box_llocal_pos = lsensor->link->R.inverse() * (box_pos - lsensor->link->p);
     box_balancer_gain = gain;
+    box_rot_camera_offset.clear();
+    for (std::map<int, hrp::Matrix33>::iterator it = box_rot_camera.begin(); it != box_rot_camera.end(); ++it) {
+      box_rot_camera_offset[it->first] = box_rot_camera[it->first];
+    }
 }
 
 void Stabilizer::stopBoxBalancer(void)

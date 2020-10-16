@@ -160,6 +160,7 @@ public:
   double box_balancer_gain;
   std::map<int, hrp::Vector3> box_pos_camera;
   std::map<int, hrp::Matrix33> box_rot_camera;
+  std::map<int, hrp::Matrix33> box_rot_camera_offset;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),
