@@ -1591,7 +1591,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             //hand_rot_dest.angle() = hand_rot_dest.angle() * st->box_balancer_gain;
             //st->hand_rot = st->hand_rot * hand_rot_dest;
 
-            hand_rot_dest = st->box_rot_camera_offset[0].transpose() * st->box_rot_camera[0];
+            hand_rot_dest = st->box_rot_camera[0] * st->box_rot_camera_offset[0].transpose();
             hand_rot_dest = hrp::Matrix33(st->hand_rot).transpose() * hand_rot_dest;
             hand_rot_dest.angle() = hand_rot_dest.angle() * st->box_balancer_gain;
             st->hand_rot = st->hand_rot * hand_rot_dest;
