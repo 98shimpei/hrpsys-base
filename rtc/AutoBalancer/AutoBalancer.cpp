@@ -1585,16 +1585,16 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
       if (st->box_control_mode && st->box_weight > 1.0) {
           // hrp::Vector3 hand_axis((st->box_pos - box_offset)(1), -(st->box_pos - box_offset)(0), 0);
           // st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * st->box_balancer_gain, hand_axis) * st->hand_rot;
-          if (st->box_rot_camera_offset.find(0) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(0) != st->box_rot_camera.end()){
+          if (st->box_rot_camera_offset.find(7) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(7) != st->box_rot_camera.end()){
             Eigen::AngleAxisd hand_rot_dest;
-            //hand_rot_dest = st->box_rot_camera[0].transpose() * st->box_rot_camera_offset[0];
-            //hand_rot_dest.angle() = hand_rot_dest.angle() * st->box_balancer_gain;
-            //st->hand_rot = st->hand_rot * hand_rot_dest;
-
-            hand_rot_dest = st->box_rot_camera[0] * st->box_rot_camera_offset[0].transpose();
-            hand_rot_dest = hrp::Matrix33(st->hand_rot).transpose() * hand_rot_dest;
+            hand_rot_dest = st->box_rot_camera_offset[7] * st->box_rot_camera[7].transpose();
             hand_rot_dest.angle() = hand_rot_dest.angle() * st->box_balancer_gain;
             st->hand_rot = st->hand_rot * hand_rot_dest;
+
+            //hand_rot_dest = st->box_rot_camera[7] * st->box_rot_camera_offset[7].transpose();
+            //hand_rot_dest = hrp::Matrix33(st->hand_rot).transpose() * hand_rot_dest;
+            //hand_rot_dest.angle() = hand_rot_dest.angle() * st->box_balancer_gain;
+            //st->hand_rot = st->hand_rot * hand_rot_dest;
           }
 
           if (st->hand_rot.angle() > 0.2) st->hand_rot.angle() = 0.2;
