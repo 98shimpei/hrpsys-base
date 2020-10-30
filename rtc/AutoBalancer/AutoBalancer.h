@@ -126,6 +126,8 @@ class AutoBalancer
   void startBoxBalancer(double gain);
   void stopBoxBalancer(void);
   double getBoxWeight(void);
+  void startLookAtBox(double gain);
+  void stopLookAtBox(void);
 
 
  protected:
@@ -289,6 +291,7 @@ class AutoBalancer
   void interpolateLegNamesAndZMPOffsets();
   void calcFixCoordsForAdjustFootstep (rats::coordinates& tmp_fix_coords);
   void rotateRefForcesForFixCoords (rats::coordinates& tmp_fix_coords);
+  void updateHeadPose();
   void updateTargetCoordsForHandFixMode (rats::coordinates& tmp_fix_coords);
   void calculateOutputRefForces ();
   hrp::Vector3 calcFootMidPosUsingZMPWeightMap ();

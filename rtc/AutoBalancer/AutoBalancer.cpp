@@ -777,6 +777,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         }
     }
 
+    //カメラからboxPoseを受け取る
     if (m_boxPoseIn.isNew()) {
       m_boxPoseIn.read();
       std::cerr << "boxPose" << std::endl;
@@ -827,6 +828,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       //   gg->set_velocity_param(tmp_v[0], tmp_v[1], tmp_v[2]);
       // }
       getTargetParameters();
+      updateHeadPose();
       // Get transition ratio
       bool is_transition_interpolator_empty = transition_interpolator->isEmpty();
       if (!is_transition_interpolator_empty) {
@@ -1511,6 +1513,32 @@ void AutoBalancer::rotateRefForcesForFixCoords (coordinates& tmp_fix_coords)
     sbp_offset = tmp_fix_coords.rot * hrp::Vector3(sbp_offset);
 };
 
+void AutoBalancer::updateHeadPose ()
+{
+  if (st->look_at_box_mode) {
+    std::cerr << "look at box mode" << std::endl;
+  }
+  std::cerr << "head_joint angle" << std::endl;
+  for (int i = 15; i < 17; i++ ) {
+    std::cerr << " " << i << " " << m_robot->joint(i)->name << " " << m_robot->joint(i)->q << std::endl;
+  }
+  std::cerr << "head_joint angle end" << std::endl;
+  hrp::VisionSensor* sensor = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
+  if (st->look_at_box_mode && st->box_pos_camera.find(7) != st->box_pos_camera.end()) {
+    hrp::Vector3 tmp = sensor->link->R.inverse() * st->box_pos_camera[7] - sensor->link->p;
+    st->head_diff[0] += st->look_at_box_gain * (tmp(1) / tmp(2));
+    st->head_diff[1] += st->look_at_box_gain * (tmp(0) / tmp(2));
+  } else {
+    st->head_diff[0] *= (1 - st->look_at_box_gain);
+    st->head_diff[1] *= (1 - st->look_at_box_gain);
+  }
+  vlimit(st->head_diff[0], -0.25 - m_robot->joint(15)->q, 0.25 - m_robot->joint(15)->q);
+  vlimit(st->head_diff[1], -0.25 - m_robot->joint(16)->q, 0.25 - m_robot->joint(16)->q);
+  m_robot->joint(15)->q += st->head_diff[0];
+  m_robot->joint(16)->q += st->head_diff[1];
+  std::cerr << "hoge: " << sensor->link->R.inverse() * hrp::Vector3(0, 0, 1)/*st->box_pos_camera[7]*/ - sensor->link->p << std::endl;
+}
+
 void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords)
 {
     // Move hand for hand fix mode
@@ -1578,6 +1606,8 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
       }
     }
     
+    //hand control for box balancing
+
     hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
     hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
     hrp::Vector3 box_offset = rsensor->link->p + rsensor->link->R * st->box_rlocal_pos;
@@ -1599,7 +1629,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
 
           if (st->hand_rot.angle() > 0.2) st->hand_rot.angle() = 0.2;
       } else if (!st->box_control_mode) {
-          st->hand_rot.angle() = st->box_balancer_gain * st->hand_rot.angle();
+          st->hand_rot.angle() = (1 - st->box_balancer_gain) * st->hand_rot.angle();
       }
     }
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
@@ -1610,6 +1640,8 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             ikp["larm"].target_p0 += (st->hand_rot * lsensor->link->R * (-st->box_llocal_pos) - lsensor->link->R * (-st->box_llocal_pos)) * 0.5;
         }
     }
+
+    //low pass filter
 
     float ft = 2.5 * m_dt;
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
@@ -2297,6 +2329,16 @@ void AutoBalancer::startBoxBalancer(double gain)
 void AutoBalancer::stopBoxBalancer(void)
 {
   st->stopBoxBalancer();
+}
+
+void AutoBalancer::startLookAtBox(double gain)
+{
+  st->startLookAtBox(gain);
+}
+
+void AutoBalancer::stopLookAtBox(void)
+{
+  st->stopLookAtBox();
 }
 
 double AutoBalancer::getBoxWeight(void)

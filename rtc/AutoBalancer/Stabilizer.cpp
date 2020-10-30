@@ -241,6 +241,10 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   box_weight = 0;
   hand_rot = Eigen::AngleAxisd(0, hrp::Vector3::UnitX());
   box_balancer_gain = 0;
+  look_at_box_mode = false;
+  look_at_box_gain = 0;
+  head_diff[0] = 0;
+  head_diff[1] = 0;
 }
 
 void Stabilizer::execStabilizer()
@@ -965,6 +969,17 @@ double Stabilizer::getBoxWeight(void)
 {
     std::cerr << "box_weight: " << box_weight;
     return box_weight;
+}
+
+void Stabilizer::startLookAtBox(double gain)
+{
+  look_at_box_mode = true;
+  look_at_box_gain = gain;
+}
+
+void Stabilizer::stopLookAtBox()
+{
+  look_at_box_mode = false;
 }
 
 // Damping control functions

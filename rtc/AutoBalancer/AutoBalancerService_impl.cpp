@@ -84,6 +84,16 @@ CORBA::Double AutoBalancerService_impl::getBoxWeight(void)
   return m_autobalancer->getBoxWeight();
 }
 
+void AutoBalancerService_impl::startLookAtBox(CORBA::Double gain)
+{
+  m_autobalancer->startLookAtBox(gain);
+}
+
+void AutoBalancerService_impl::stopLookAtBox(void)
+{
+  m_autobalancer->stopLookAtBox();
+}
+
 CORBA::Boolean AutoBalancerService_impl::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::GaitGeneratorParam& i_param)
 {
   return m_autobalancer->setGaitGeneratorParam(i_param);

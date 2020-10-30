@@ -757,5 +757,9 @@ module OpenHRP
     void stopBoxBalancer();
 
     double getBoxWeight();
+
+    void startLookAtBox(in double gain);
+
+    void stopLookAtBox();
   };
 };

@@ -2158,7 +2158,7 @@ dr=0, dp=0, dw=0, tm=10, wait=True):
         '''!@brief
         Stop BoxBalancer mode
         '''
-        self.abc_svc.startBoxBalancer()
+        self.abc_svc.stopBoxBalancer()
 
     def getBoxWeight(self):
         '''!@brief
