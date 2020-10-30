@@ -243,8 +243,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   box_balancer_gain = 0;
   look_at_box_mode = false;
   look_at_box_gain = 0;
-  head_diff[0] = 0;
-  head_diff[1] = 0;
+  head_diff.resize(2, 0);
 }
 
 void Stabilizer::execStabilizer()
