@@ -1516,6 +1516,7 @@ void AutoBalancer::rotateRefForcesForFixCoords (coordinates& tmp_fix_coords)
 
 void AutoBalancer::updateHeadPose ()
 {
+  /*
   if (st->look_at_box_mode) {
     std::cerr << "look at box mode" << std::endl;
   }
@@ -1537,7 +1538,17 @@ void AutoBalancer::updateHeadPose ()
   vlimit(st->head_diff[1], -0.25 - m_robot->joint(16)->q, 0.25 - m_robot->joint(16)->q);
   m_robot->joint(15)->q += st->head_diff[0];
   m_robot->joint(16)->q += st->head_diff[1];
-  std::cerr << "hoge: " << sensor->link->R.inverse() * hrp::Vector3(0, 0, 1)/*st->box_pos_camera[7]*/ - sensor->link->p << std::endl;
+  */
+  for (int i = 0; i < 4; i++) {
+    hrp::VisionSensor* sensor = m_robot->sensor<hrp::VisionSensor>(i);
+    hrp::Vector3 world_pos = sensor->link->R * sensor->localPos + sensor->link->p;
+    hrp::Matrix33 world_rot = sensor->link->R * sensor->localR;
+    std::cerr << "sensor_name: " << sensor->name << std::endl;
+    std::cerr << "pos" << std::endl;
+    std::cerr << world_pos << std::endl;
+    std::cerr << "rot" << std::endl;
+    std::cerr << world_rot << std::endl;
+  }
 }
 
 void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords)
