@@ -1516,39 +1516,27 @@ void AutoBalancer::rotateRefForcesForFixCoords (coordinates& tmp_fix_coords)
 
 void AutoBalancer::updateHeadPose ()
 {
-  /*
-  if (st->look_at_box_mode) {
-    std::cerr << "look at box mode" << std::endl;
-  }
-  std::cerr << "head_joint angle" << std::endl;
-  for (int i = 15; i < 17; i++ ) {
-    std::cerr << " " << i << " " << m_robot->joint(i)->name << " " << m_robot->joint(i)->q << std::endl;
-  }
-  std::cerr << "head_joint angle end" << std::endl;
+  double tmp15 = m_robot->joint(15)->q;
+  double tmp16 = m_robot->joint(16)->q;
+  m_robot->joint(15)->q = tmp15 + st->head_diff[0];
+  m_robot->joint(16)->q = tmp16 + st->head_diff[1];
+  m_robot->calcForwardKinematics();
   hrp::VisionSensor* sensor = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
   if (st->look_at_box_mode && st->box_pos_camera.find(7) != st->box_pos_camera.end()) {
-    hrp::Vector3 tmp = sensor->link->R.inverse() * st->box_pos_camera[7] - sensor->link->p;
-    st->head_diff[0] += st->look_at_box_gain * (tmp(1) / tmp(2));
-    st->head_diff[1] += st->look_at_box_gain * (tmp(0) / tmp(2));
+    hrp::Vector3 world_pos = sensor->link->R * sensor->localPos + sensor->link->p;
+    hrp::Matrix33 world_rot = sensor->link->R * sensor->localR;
+    hrp::Vector3 tmp = world_rot.inverse() * (st->box_pos_camera[7] - world_pos);
+    st->head_diff[0] -= st->look_at_box_gain * (-tmp(0) / tmp(2));//head_left_optical_frameの座標系で見るとx(横)方向は動きと座標が逆になる
+    st->head_diff[1] += st->look_at_box_gain * (tmp(1) / tmp(2));//y, zが逆になる(HEAD_LEFT_CAMERAとhead_left_optical_frameの座標系設定のずれ。位置も微妙に異なる)
+    std::cerr << tmp << std::endl;
   } else {
     st->head_diff[0] *= (1 - st->look_at_box_gain);
     st->head_diff[1] *= (1 - st->look_at_box_gain);
   }
   vlimit(st->head_diff[0], -0.25 - m_robot->joint(15)->q, 0.25 - m_robot->joint(15)->q);
   vlimit(st->head_diff[1], -0.25 - m_robot->joint(16)->q, 0.25 - m_robot->joint(16)->q);
-  m_robot->joint(15)->q += st->head_diff[0];
-  m_robot->joint(16)->q += st->head_diff[1];
-  */
-  for (int i = 0; i < 4; i++) {
-    hrp::VisionSensor* sensor = m_robot->sensor<hrp::VisionSensor>(i);
-    hrp::Vector3 world_pos = sensor->link->R * sensor->localPos + sensor->link->p;
-    hrp::Matrix33 world_rot = sensor->link->R * sensor->localR;
-    std::cerr << "sensor_name: " << sensor->name << std::endl;
-    std::cerr << "pos" << std::endl;
-    std::cerr << world_pos << std::endl;
-    std::cerr << "rot" << std::endl;
-    std::cerr << world_rot << std::endl;
-  }
+  m_robot->joint(15)->q = tmp15 + st->head_diff[0];
+  m_robot->joint(16)->q = tmp16 + st->head_diff[1];
 }
 
 void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords)
