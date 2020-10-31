@@ -782,6 +782,12 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_boxPoseIn.read();
       std::cerr << "boxPose" << std::endl;
       std::cerr << "box exist " << m_boxPose.data.existence << std::endl;
+      std::cerr << "joint15: " << m_robot->joint(15)->q  << std::endl;
+      hrp::VisionSensor* sensor = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
+      hrp::Vector3 world_pos = sensor->link->R * sensor->localPos + sensor->link->p;
+      hrp::Matrix33 world_rot = sensor->link->R * sensor->localR;
+      std::cerr << "world_camera_pos: " << std::endl;
+      std::cerr << world_pos << std::endl;
 
       // get keys
       std::list<int> keys;
@@ -829,7 +835,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       //   gg->set_velocity_param(tmp_v[0], tmp_v[1], tmp_v[2]);
       // }
       getTargetParameters();
-      updateHeadPose();
       // Get transition ratio
       bool is_transition_interpolator_empty = transition_interpolator->isEmpty();
       if (!is_transition_interpolator_empty) {
@@ -1240,6 +1245,7 @@ void AutoBalancer::getTargetParameters()
   for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
     m_robot->joint(i)->q = m_qRef.data[i];
   }
+  updateHeadPose();
   fik->setReferenceJointAngles();
   // basepos, rot, zmp
   m_robot->rootLink()->p = input_basePos;
