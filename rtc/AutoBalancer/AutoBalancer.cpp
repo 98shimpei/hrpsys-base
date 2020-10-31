@@ -1526,15 +1526,36 @@ void AutoBalancer::updateHeadPose ()
     hrp::Vector3 world_pos = sensor->link->R * sensor->localPos + sensor->link->p;
     hrp::Matrix33 world_rot = sensor->link->R * sensor->localR;
     hrp::Vector3 tmp = world_rot.inverse() * (st->box_pos_camera[7] - world_pos);
-    st->head_diff[0] -= st->look_at_box_gain * (-tmp(0) / tmp(2));//head_left_optical_frameの座標系で見るとx(横)方向は動きと座標が逆になる
-    st->head_diff[1] += st->look_at_box_gain * (tmp(1) / tmp(2));//y, zが逆になる(HEAD_LEFT_CAMERAとhead_left_optical_frameの座標系設定のずれ。位置も微妙に異なる)
-    std::cerr << tmp << std::endl;
+    //head_left_optical_frameの座標系で見るとx(横)方向は動きと座標が逆になる
+    //y, zが逆になる(なぜかは不明)
+    st->head_diff[0] -= st->look_at_box_gain * (tmp(0) / -tmp(2));
+    st->head_diff[1] += st->look_at_box_gain * (-tmp(1) / -tmp(2));
   } else {
+    //戻す
     st->head_diff[0] *= (1 - st->look_at_box_gain);
     st->head_diff[1] *= (1 - st->look_at_box_gain);
   }
-  vlimit(st->head_diff[0], -0.25 - m_robot->joint(15)->q, 0.25 - m_robot->joint(15)->q);
-  vlimit(st->head_diff[1], -0.25 - m_robot->joint(16)->q, 0.25 - m_robot->joint(16)->q);
+  //headの角度制限確認。相互に影響する
+  {
+    if (std::abs(tmp15) < 15) {
+      vlimit(st->head_diff[0], -0.18 - m_robot->joint(15)->q, 0.40 - m_robot->joint(15)->q);
+    } else if (std::abs(tmp15) < 25) {
+      vlimit(st->head_diff[0], -0.18 - m_robot->joint(15)->q, 0.30 - m_robot->joint(15)->q);
+    } else if (std::abs(tmp15) < 30) {
+      vlimit(st->head_diff[0], -0.18 - m_robot->joint(15)->q, 0.15 - m_robot->joint(15)->q);
+    } else {
+      vlimit(st->head_diff[0], -0.18 - m_robot->joint(15)->q, 0.07 - m_robot->joint(15)->q);
+    }
+    if (tmp16 < 0.07) {
+      vlimit(st->head_diff[1], -0.60 - m_robot->joint(16)->q, 0.60 - m_robot->joint(16)->q);
+    } else if (tmp16 < 0.15) {
+      vlimit(st->head_diff[1], -0.30 - m_robot->joint(16)->q, 0.30 - m_robot->joint(16)->q);
+    } else if (tmp16 < 0.30) {
+      vlimit(st->head_diff[1], -0.25 - m_robot->joint(16)->q, 0.25 - m_robot->joint(16)->q);
+    } else {
+      vlimit(st->head_diff[1], -0.15 - m_robot->joint(16)->q, 0.15 - m_robot->joint(16)->q);
+    }
+  }
   m_robot->joint(15)->q = tmp15 + st->head_diff[0];
   m_robot->joint(16)->q = tmp16 + st->head_diff[1];
 }
