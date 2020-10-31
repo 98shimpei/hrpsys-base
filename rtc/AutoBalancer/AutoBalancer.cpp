@@ -1532,28 +1532,28 @@ void AutoBalancer::updateHeadPose ()
     st->head_diff[1] += st->look_at_box_gain * (-tmp(1) / -tmp(2));
   } else {
     //戻す
-    st->head_diff[0] *= (1 - st->look_at_box_gain);
-    st->head_diff[1] *= (1 - st->look_at_box_gain);
+    st->head_diff[0] *= 0.9993;//(1 - st->look_at_box_gain);
+    st->head_diff[1] *= 0.9993;//(1 - st->look_at_box_gain);
   }
   //headの角度制限確認。相互に影響する
   {
-    if (std::abs(tmp15) < 15) {
-      vlimit(st->head_diff[0], -0.18 - m_robot->joint(15)->q, 0.40 - m_robot->joint(15)->q);
-    } else if (std::abs(tmp15) < 25) {
-      vlimit(st->head_diff[0], -0.18 - m_robot->joint(15)->q, 0.30 - m_robot->joint(15)->q);
-    } else if (std::abs(tmp15) < 30) {
-      vlimit(st->head_diff[0], -0.18 - m_robot->joint(15)->q, 0.15 - m_robot->joint(15)->q);
+    if (std::abs(m_robot->joint(15)->q) <= deg2rad(15.01)) {
+      vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(40) - tmp16);
+    } else if (std::abs(m_robot->joint(15)->q) <= deg2rad(25.01)) {
+      vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(30) - tmp16);
+    } else if (std::abs(m_robot->joint(15)->q) <= deg2rad(30.01)) {
+      vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(15) - tmp16);
     } else {
-      vlimit(st->head_diff[0], -0.18 - m_robot->joint(15)->q, 0.07 - m_robot->joint(15)->q);
+      vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(6.99) - tmp16);
     }
-    if (tmp16 < 0.07) {
-      vlimit(st->head_diff[1], -0.60 - m_robot->joint(16)->q, 0.60 - m_robot->joint(16)->q);
-    } else if (tmp16 < 0.15) {
-      vlimit(st->head_diff[1], -0.30 - m_robot->joint(16)->q, 0.30 - m_robot->joint(16)->q);
-    } else if (tmp16 < 0.30) {
-      vlimit(st->head_diff[1], -0.25 - m_robot->joint(16)->q, 0.25 - m_robot->joint(16)->q);
+    if (m_robot->joint(16)->q <= deg2rad(7)) {
+      vlimit(st->head_diff[0], deg2rad(-60) - tmp15, deg2rad(60) - tmp15);
+    } else if (m_robot->joint(16)->q <= deg2rad(15.01)) {
+      vlimit(st->head_diff[0], deg2rad(-30) - tmp15, deg2rad(30) - tmp15);
+    } else if (m_robot->joint(16)->q <= deg2rad(30.01)) {
+      vlimit(st->head_diff[0], deg2rad(-25) - tmp15, deg2rad(25) - tmp15);
     } else {
-      vlimit(st->head_diff[1], -0.15 - m_robot->joint(16)->q, 0.15 - m_robot->joint(16)->q);
+      vlimit(st->head_diff[0], deg2rad(-15) - tmp15, deg2rad(15) - tmp15);
     }
   }
   m_robot->joint(15)->q = tmp15 + st->head_diff[0];
