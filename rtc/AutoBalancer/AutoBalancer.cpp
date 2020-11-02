@@ -801,6 +801,8 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
           m_boxPose.data.poses[i].ry,
           m_boxPose.data.poses[i].rz);
         st->box_rot_camera[id] = tmp.matrix();
+        //TODO:なぜか知らんがbox_rot_cameraが180度回転してしまっている
+        st->box_rot_camera[id] = Eigen::AngleAxisd(deg2rad(180), Eigen::Vector3d::UnitX()) * st->box_rot_camera[id];
 
         hrp::VisionSensor* sensor = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
         hrp::Vector3 world_pos = sensor->link->R * sensor->localPos + sensor->link->p;
@@ -851,6 +853,9 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
               default:
                   break;
           }
+          //head_pose分更新
+          m_robot->joint(15)->q += st->head_diff[0];
+          m_robot->joint(16)->q += st->head_diff[1];
 //        /////// Inverse Dynamics /////////
 //        if(!idsb.is_initialized){
 //          idsb.setInitState(m_robot, m_dt);
