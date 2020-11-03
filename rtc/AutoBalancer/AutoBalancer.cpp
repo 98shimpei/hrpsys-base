@@ -835,6 +835,8 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       // }
       getTargetParameters();
       updateHeadPose();
+      double headtmp15 = m_robot->joint(15)->q;
+      double headtmp16 = m_robot->joint(16)->q;
       // Get transition ratio
       bool is_transition_interpolator_empty = transition_interpolator->isEmpty();
       if (!is_transition_interpolator_empty) {
@@ -853,9 +855,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
               default:
                   break;
           }
-          //head_pose分更新
-          m_robot->joint(15)->q += st->head_diff[0];
-          m_robot->joint(16)->q += st->head_diff[1];
 //        /////// Inverse Dynamics /////////
 //        if(!idsb.is_initialized){
 //          idsb.setInitState(m_robot, m_dt);
@@ -898,6 +897,9 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         fik->d_root_height = 0.0;
         fik->storeCurrentParameters();
       }
+      //head_pose分更新
+      m_robot->joint(15)->q = headtmp15;
+      m_robot->joint(16)->q = headtmp16;
       // Transition
       if (!is_transition_interpolator_empty) {
         // transition_interpolator_ratio 0=>1 : IDLE => ABC
@@ -1662,7 +1664,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             //st->hand_rot = st->hand_rot * hand_rot_dest;
           }
 
-          if (st->hand_rot.angle() > 0.2) st->hand_rot.angle() = 0.2;
+          if (st->hand_rot.angle() > 0.5) st->hand_rot.angle() = 0.5;
       } else if (!st->box_control_mode) {
           st->hand_rot.angle() = (1 - st->box_balancer_gain) * st->hand_rot.angle();
       }
@@ -2379,6 +2381,11 @@ void AutoBalancer::stopLookAtBox(void)
 double AutoBalancer::getBoxWeight(void)
 {
   return st->getBoxWeight();
+}
+
+void AutoBalancer::setBoxWeightOffset(void)
+{
+  st->setBoxWeightOffset();
 }
 
 void AutoBalancer::waitABCTransition()

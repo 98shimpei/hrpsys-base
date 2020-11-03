@@ -31,6 +31,7 @@ public:
   void startBoxBalancer(CORBA::Double);
   void stopBoxBalancer(void);
   CORBA::Double getBoxWeight(void);
+  void setBoxWeightOffset(void);
   void startLookAtBox(CORBA::Double);
   void stopLookAtBox(void);
   CORBA::Boolean setGaitGeneratorParam(const OpenHRP::AutoBalancerService::GaitGeneratorParam& i_param);

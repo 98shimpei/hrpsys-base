@@ -16,6 +16,7 @@
 #include <math.h>
 #include <boost/lambda/lambda.hpp>
 #include <unistd.h>
+#include <numeric>
 
 typedef coil::Guard<coil::Mutex> Guard;
 
@@ -239,6 +240,11 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   box_llocal_pos = hrp::Vector3::Zero();
   box_control_mode = false;
   box_weight = 0;
+  box_weight_offset = 0;
+  box_weight_buf = boost::circular_buffer<double>(10);
+  for (boost::circular_buffer<double>::iterator it = box_weight_buf.begin(); it != box_weight_buf.end(); ++it) {
+    *it = 0;
+  }
   hand_rot = Eigen::AngleAxisd(0, hrp::Vector3::UnitX());
   box_balancer_gain = 0;
   look_at_box_mode = false;
@@ -968,6 +974,11 @@ double Stabilizer::getBoxWeight(void)
 {
     std::cerr << "box_weight: " << box_weight;
     return box_weight;
+}
+
+void Stabilizer::setBoxWeightOffset(void)
+{
+    box_weight_offset += box_weight;
 }
 
 void Stabilizer::startLookAtBox(double gain)
@@ -1889,8 +1900,8 @@ void Stabilizer::calcSwingEEModification ()
     origin_moment(0) / -(world_force["rhsensor"]->getCurrentValue() + world_force["lhsensor"]->getCurrentValue())(2),
     (lpos + rpos)(2) * 0.5);
 
-  box_weight = -(world_force["rhsensor"]->getCurrentValue() + world_force["lhsensor"]->getCurrentValue())(2) / 9.8;
-
+  box_weight_buf.push_back(-(world_force["rhsensor"]->getCurrentValue() + world_force["lhsensor"]->getCurrentValue())(2) / 9.8);
+  box_weight = std::accumulate(box_weight_buf.begin(), box_weight_buf.end(), 0.0) / box_weight_buf.size() - box_weight_offset;
   if (DEBUGP) {
     std::cerr << "[" << print_str << "] Swing foot control" << std::endl;
     for (size_t i = 0; i < stikp.size(); i++) {

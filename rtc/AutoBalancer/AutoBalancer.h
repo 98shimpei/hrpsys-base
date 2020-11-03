@@ -126,6 +126,7 @@ class AutoBalancer
   void startBoxBalancer(double gain);
   void stopBoxBalancer(void);
   double getBoxWeight(void);
+  void setBoxWeightOffset(void);
   void startLookAtBox(double gain);
   void stopLookAtBox(void);
 

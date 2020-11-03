@@ -84,6 +84,11 @@ CORBA::Double AutoBalancerService_impl::getBoxWeight(void)
   return m_autobalancer->getBoxWeight();
 }
 
+void AutoBalancerService_impl::setBoxWeightOffset(void)
+{
+  return m_autobalancer->setBoxWeightOffset();
+}
+
 void AutoBalancerService_impl::startLookAtBox(CORBA::Double gain)
 {
   m_autobalancer->startLookAtBox(gain);

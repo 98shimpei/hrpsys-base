@@ -30,6 +30,7 @@
 #include "../ImpedanceController/RatsMatrix.h"
 #include "../TorqueFilter/IIRFilter.h"
 #include "../SequencePlayer/interpolator.h"
+#include <boost/circular_buffer.hpp>
 
 // </rtc-template>
 
@@ -155,6 +156,8 @@ public:
   hrp::Vector3 box_rlocal_pos;
   hrp::Vector3 box_llocal_pos;
   double box_weight;
+  boost::circular_buffer<double> box_weight_buf; //average of 10 times
+  double box_weight_offset;
   bool box_control_mode;
   Eigen::AngleAxisd hand_rot;
   double box_balancer_gain;
@@ -195,6 +198,7 @@ public:
   void startBoxBalancer(double gain);
   void stopBoxBalancer(void);
   double getBoxWeight(void);
+  void setBoxWeightOffset(void);
   void startLookAtBox(double gain);
   void stopLookAtBox(void);
   double calcDampingControl (const double tau_d, const double tau, const double prev_d,
