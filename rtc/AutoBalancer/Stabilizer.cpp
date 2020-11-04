@@ -944,19 +944,20 @@ void Stabilizer::stopStabilizer(void)
 
 void Stabilizer::startBoxBalancer(double gain)
 {
-    std::cerr << "startBoxBalancer" << std::endl;
-    for (int i = 0; i < 100; i++) {
-        std::cerr << "shimpei!" << std::endl;
+    if (box_weight < 1.0) {
+      std::cerr << "please call after lift boxes" << std::endl;
+      return;
     }
+    std::cerr << "startBoxBalancer" << std::endl;
     box_control_mode = true;
 
     hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
     hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
-    //box_rlocal_pos = rsensor->link->R.inverse() * (box_pos - rsensor->link->p);
-    //box_llocal_pos = lsensor->link->R.inverse() * (box_pos - lsensor->link->p);
-    hrp::Vector3 box_pos_dummy = (rsensor->link->p + lsensor->link->p) * 0.5;
-    box_rlocal_pos = rsensor->link->R.inverse() * (box_pos_dummy - rsensor->link->p);
-    box_llocal_pos = lsensor->link->R.inverse() * (box_pos_dummy - lsensor->link->p);
+    box_rlocal_pos = rsensor->link->R.inverse() * (box_pos - rsensor->link->p);
+    box_llocal_pos = lsensor->link->R.inverse() * (box_pos - lsensor->link->p);
+    //hrp::Vector3 box_pos_dummy = (rsensor->link->p + lsensor->link->p) * 0.5;
+    //box_rlocal_pos = rsensor->link->R.inverse() * (box_pos_dummy - rsensor->link->p);
+    //box_llocal_pos = lsensor->link->R.inverse() * (box_pos_dummy - lsensor->link->p);
     box_balancer_gain = gain;
     box_rot_camera_offset.clear();
     for (std::map<int, hrp::Matrix33>::iterator it = box_rot_camera.begin(); it != box_rot_camera.end(); ++it) {
