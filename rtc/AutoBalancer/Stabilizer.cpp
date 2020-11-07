@@ -1873,9 +1873,6 @@ void Stabilizer::calcSwingEEModification ()
   hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
   hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
 
-  hrp::Vector3 r_rpy = rsensor->link->R.eulerAngles(0, 1, 2);
-  std::cerr << "st  rlink_rpy: " << r_rpy(0) << " " << r_rpy(1) << " " << r_rpy(2) << std::endl;
-
   hrp::Matrix33 rsensorR = rsensor->link->R * rsensor->localR;
   hrp::Matrix33 lsensorR = lsensor->link->R * lsensor->localR;
   hrp::Vector3 rdata_p(wrenches[2][0], wrenches[2][1], wrenches[2][2]);
