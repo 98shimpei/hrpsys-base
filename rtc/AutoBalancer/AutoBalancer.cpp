@@ -232,7 +232,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_qTouchWall.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
     m_tmp.data.length(35);
-    m_shimpei.data.length(14);
+    m_shimpei.data.length(15);
     diff_q.resize(m_robot->numJoints());
     // for debug output
     m_originRefZmp.data.x = m_originRefZmp.data.y = m_originRefZmp.data.z = 0.0;
@@ -789,37 +789,45 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
 
       for (int i = 0; i < m_boxPose.data.poses.length(); i++){
         int id = m_boxPose.data.poses[i].id;
-        st->box_pos_camera[id] = hrp::Vector3(
+        hrp::Vector3 tmp_pos = hrp::Vector3(
           m_boxPose.data.poses[i].px,
           m_boxPose.data.poses[i].py,
           m_boxPose.data.poses[i].pz);
-        Eigen::Quaternion<double> tmp(
+        Eigen::Quaternion<double> tmp_quat(
           m_boxPose.data.poses[i].rw,
           m_boxPose.data.poses[i].rx,
           m_boxPose.data.poses[i].ry,
           m_boxPose.data.poses[i].rz);
-        st->box_rot_camera[id] = tmp.matrix();
+        hrp::Matrix33 tmp_rot = tmp_quat.matrix();
 
-        std::vector<hrp::BodyPtr>::iterator list_it = m_robot_list.begin();
+        /*std::vector<hrp::BodyPtr>::iterator list_it = m_robot_list.begin();
         std::vector<RTC::Time>::iterator tm_it = m_robot_tm.begin();
         while(tm_it != m_robot_tm.end() && tm_it->sec <= m_boxPose.tm.sec && tm_it->nsec <= m_boxPose.tm.nsec) {
           m_robot_list.erase(list_it);
           m_robot_tm.erase(tm_it);
-        }
+        }*/
         
         hrp::VisionSensor* sensor;
-        if (m_robot_list.size() != 0) {
+        /*if (m_robot_list.size() != 0) {
           m_robot_list[0]->calcForwardKinematics();
           sensor = m_robot_list[0]->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
         } else {
           m_robot->calcForwardKinematics();
           sensor = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
-        }
+        }*/
+        m_robot->calcForwardKinematics();
+        sensor = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
 
         hrp::Vector3 world_pos = sensor->link->R * sensor->localPos + sensor->link->p;
-        hrp::Matrix33 world_rot = sensor->link->R * sensor->localR;
-        st->box_pos_camera[id] = world_pos + world_rot * st->box_pos_camera[id];
-        st->box_rot_camera[id] = world_rot * st->box_rot_camera[id];
+        hrp::Matrix33 world_rot = sensor->link->R * sensor->localR * Eigen::AngleAxisd(deg2rad(180), Eigen::Vector3d::UnitX());
+        tmp_pos = world_pos + world_rot * tmp_pos;
+        tmp_rot = world_rot * tmp_rot;
+
+        if (st->box_pos_camera.find(id) == st->box_pos_camera.end() || (tmp_pos - st->box_pos_camera[id]).norm() < 0.5) {//外れ値除去
+          std::cerr << "update box_pos" << std::endl;
+          st->box_pos_camera[id] = tmp_pos;
+          st->box_rot_camera[id] = tmp_rot;
+        }
 
         keys.remove(id);
       }
@@ -848,8 +856,8 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       updateHeadPose();
       double headtmp15 = m_robot->joint(15)->q;
       double headtmp16 = m_robot->joint(16)->q;
-      m_robot_list.push_back(hrp::BodyPtr(new hrp::Body(*m_robot)));
-      m_robot_tm.push_back(m_qRef.tm);
+      //m_robot_list.push_back(hrp::BodyPtr(new hrp::Body(*m_robot)));
+      //m_robot_tm.push_back(m_qRef.tm);
       // Get transition ratio
       bool is_transition_interpolator_empty = transition_interpolator->isEmpty();
       if (!is_transition_interpolator_empty) {
@@ -1080,11 +1088,13 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         m_shimpei.data[11] = 0;
       }
       m_shimpei.data[12] = m_robot->joint(15)->q;
-      if (m_robot_list.size() > 0) {
+      /*if (m_robot_list.size() > 0) {
         m_shimpei.data[13] = m_robot_list[0]->joint(15)->q;
       } else {
         m_shimpei.data[13] = m_robot->joint(15)->q;
-      }
+      }*/
+      m_shimpei.data[13] = m_robot->joint(15)->q;
+      m_shimpei.data[14] = m_robot->joint(16)->q;
       m_shimpei.tm = m_qRef.tm;
       m_shimpeiOut.write();
       
@@ -1557,14 +1567,15 @@ void AutoBalancer::updateHeadPose ()
   double tmp15 = m_robot->joint(15)->q - st->head_diff[0];
   double tmp16 = m_robot->joint(16)->q - st->head_diff[1];
   hrp::VisionSensor* sensor;
-  if (m_robot_list.size() != 0) {
+  /*if (m_robot_list.size() != 0) {
     sensor = m_robot_list[0]->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
   } else {
     sensor = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
-  }
+  }*/
+  sensor = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
   if (st->look_at_box_mode && st->box_pos_camera.find(7) != st->box_pos_camera.end()) {
     hrp::Vector3 world_pos = sensor->link->R * sensor->localPos + sensor->link->p;
-    hrp::Matrix33 world_rot = sensor->link->R * sensor->localR;
+    hrp::Matrix33 world_rot = sensor->link->R * sensor->localR * Eigen::AngleAxisd(deg2rad(180), Eigen::Vector3d::UnitX());
     hrp::Vector3 tmp = world_rot.inverse() * (st->box_pos_camera[7] - world_pos);
     //head_left_optical_frameの座標系で見るとx(横)方向は動きと座標が逆になる
     //y, zが逆になる(なぜかは不明)
@@ -1673,33 +1684,30 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
     hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
     hrp::Vector3 box_offset = rsensor->link->p + rsensor->link->R * st->box_rlocal_pos;
-    hrp::Vector3  box_rpy = st->box_rot_camera[7].eulerAngles(0, 1, 2);
-    std::cerr << "box_rpy: " << box_rpy(0) << " " << box_rpy(1) << " " << box_rpy(2) << std::endl;
-    if (st->box_control_mode && st->box_weight > 1.0) {
+    if (st->box_control_mode /*&& st->box_weight > 1.0*/) {
         //hand force
         //hrp::Vector3 hand_axis((st->box_pos - box_offset)(1), -(st->box_pos - box_offset)(0), 0);
         //st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * st->box_balancer_gain, hand_axis) * st->hand_rot;
 
         int box_id = 7;
         //camera pos
-        /*if (st->box_rlocal_pos_camera.find(box_id) != st->box_rlocal_pos_camera.end() && st->box_pos_camera.find(box_id) != st->box_pos_camera.end()){
+        if (st->box_rlocal_pos_camera.find(box_id) != st->box_rlocal_pos_camera.end() && st->box_pos_camera.find(box_id) != st->box_pos_camera.end()){
           hrp::Vector3 box_offset_camera = rsensor->link->p + rsensor->link->R * st->box_rlocal_pos_camera[box_id];
           hrp::Vector3 hand_axis((st->box_pos_camera[box_id] - box_offset_camera)(1), -(st->box_pos_camera[box_id] - box_offset_camera)(0), 0);
           st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * st->box_balancer_gain, hand_axis) * st->hand_rot;
-        }*/
+        }
 
         //camera rot
-        if (st->box_rot_camera_offset.find(box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(box_id) != st->box_rot_camera.end()){
+        /*if (st->box_rot_camera_offset.find(box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(box_id) != st->box_rot_camera.end()){
           Eigen::AngleAxisd hand_rot_diff;
           hand_rot_diff = st->box_rot_camera[box_id] * st->box_rot_camera_offset[box_id].transpose();
           hrp::Vector3 hand_rot_diff_z = hand_rot_diff * hrp::Vector3(0, 0, 1);
-          std::cerr << "diff_z: " << hand_rot_diff_z[0] << " " << hand_rot_diff_z[1] << " " << hand_rot_diff_z[2] << std::endl;
           hrp::Vector3 hand_axis(hand_rot_diff_z[1], -hand_rot_diff_z[0], 0);
           st->hand_rot = Eigen::AngleAxisd(std::acos(hand_rot_diff_z[2]) * st->box_balancer_gain, hand_axis) * st->hand_rot; 
           //std::cerr << "hand_rot_diff_z: " << hand_rot_diff_z[0] << " " << hand_rot_diff_z[1] << " " << hand_rot_diff_z[2] << std::endl;
-        }
+        }*/
 
-        if (st->hand_rot.angle() > 0.5) st->hand_rot.angle() = 0.5;
+        if (st->hand_rot.angle() > 0.2) st->hand_rot.angle() = 0.2;//0.5
     } else if (!st->box_control_mode) {
         st->hand_rot.angle() = (1 - st->box_balancer_gain) * st->hand_rot.angle();
     }

@@ -344,8 +344,8 @@ class AutoBalancer
   std::vector<hrp::Vector3> default_zmp_offsets;
   double m_dt;
   hrp::BodyPtr m_robot;
-  std::vector<hrp::BodyPtr> m_robot_list;
-  std::vector<RTC::Time> m_robot_tm;
+  //std::vector<hrp::BodyPtr> m_robot_list;
+  //std::vector<RTC::Time> m_robot_tm;
   coil::Mutex m_mutex;
 
   double transition_interpolator_ratio, transition_time, zmp_transition_time, adjust_footstep_transition_time, leg_names_interpolator_ratio;
