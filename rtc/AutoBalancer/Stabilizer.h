@@ -163,6 +163,8 @@ public:
   double box_balancer_gain;
   std::map<int, hrp::Vector3> box_pos_camera;
   std::map<int, hrp::Matrix33> box_rot_camera;
+  std::map<int, hrp::Vector3> box_rlocal_pos_camera;
+  std::map<int, hrp::Vector3> box_llocal_pos_camera;
   std::map<int, hrp::Matrix33> box_rot_camera_offset;
   double look_at_box_mode;
   double look_at_box_gain;
