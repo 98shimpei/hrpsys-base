@@ -246,7 +246,8 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
     *it = 0;
   }
   hand_rot = Eigen::AngleAxisd(0, hrp::Vector3::UnitX());
-  box_balancer_gain = 0;
+  box_balancer_pos_gain = 0;
+  box_balancer_rot_gain = 0;
   look_at_box_mode = false;
   look_at_box_gain = 0;
   head_diff.resize(2, 0);
@@ -942,7 +943,7 @@ void Stabilizer::stopStabilizer(void)
   std::cerr << "[" << print_str << "] " << "Stop ST DONE"  << std::endl;
 }
 
-void Stabilizer::startBoxBalancer(double gain)
+void Stabilizer::startBoxBalancer(double gain_pos, double gain_rot)
 {
     if (box_weight < 0.5) {
       std::cerr << "please call after lift boxes" << std::endl;
@@ -958,7 +959,8 @@ void Stabilizer::startBoxBalancer(double gain)
     //hrp::Vector3 box_pos_dummy = (rsensor->link->p + lsensor->link->p) * 0.5;
     //box_rlocal_pos = rsensor->link->R.inverse() * (box_pos_dummy - rsensor->link->p);
     //box_llocal_pos = lsensor->link->R.inverse() * (box_pos_dummy - lsensor->link->p);
-    box_balancer_gain = gain;
+    box_balancer_pos_gain = gain_pos;
+    box_balancer_rot_gain = gain_rot;
     box_rlocal_pos_camera.clear();
     box_llocal_pos_camera.clear();
     box_rot_camera_offset.clear();

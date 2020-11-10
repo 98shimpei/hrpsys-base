@@ -69,9 +69,9 @@ void AutoBalancerService_impl::stopStabilizer(void)
   m_autobalancer->stopStabilizer();
 }
 
-void AutoBalancerService_impl::startBoxBalancer(CORBA::Double gain)
+void AutoBalancerService_impl::startBoxBalancer(CORBA::Double gain_pos, CORBA::Double gain_rot)
 {
-  m_autobalancer->startBoxBalancer(gain);
+  m_autobalancer->startBoxBalancer(gain_pos, gain_rot);
 }
 
 void AutoBalancerService_impl::stopBoxBalancer(void)

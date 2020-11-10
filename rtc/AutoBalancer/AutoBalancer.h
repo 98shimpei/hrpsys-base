@@ -123,7 +123,7 @@ class AutoBalancer
   void setStabilizerParam(const OpenHRP::AutoBalancerService::StabilizerParam& i_param);
   void startStabilizer(void);
   void stopStabilizer(void);
-  void startBoxBalancer(double gain);
+  void startBoxBalancer(double gain_pos, double gain_rot);
   void stopBoxBalancer(void);
   double getBoxWeight(void);
   void setBoxWeightOffset(void);

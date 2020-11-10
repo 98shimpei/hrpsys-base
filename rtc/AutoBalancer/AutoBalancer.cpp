@@ -824,7 +824,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         tmp_rot = world_rot * tmp_rot;
 
         if (st->box_pos_camera.find(id) == st->box_pos_camera.end() || (tmp_pos - st->box_pos_camera[id]).norm() < 0.5) {//外れ値除去
-          std::cerr << "update box_pos" << std::endl;
           st->box_pos_camera[id] = tmp_pos;
           st->box_rot_camera[id] = tmp_rot;
         }
@@ -1694,22 +1693,22 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         if (st->box_rlocal_pos_camera.find(box_id) != st->box_rlocal_pos_camera.end() && st->box_pos_camera.find(box_id) != st->box_pos_camera.end()){
           hrp::Vector3 box_offset_camera = rsensor->link->p + rsensor->link->R * st->box_rlocal_pos_camera[box_id];
           hrp::Vector3 hand_axis((st->box_pos_camera[box_id] - box_offset_camera)(1), -(st->box_pos_camera[box_id] - box_offset_camera)(0), 0);
-          st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * st->box_balancer_gain, hand_axis) * st->hand_rot;
+          st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * st->box_balancer_pos_gain, hand_axis) * st->hand_rot;
         }
 
         //camera rot
-        /*if (st->box_rot_camera_offset.find(box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(box_id) != st->box_rot_camera.end()){
+        if (st->box_rot_camera_offset.find(box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(box_id) != st->box_rot_camera.end()){
           Eigen::AngleAxisd hand_rot_diff;
           hand_rot_diff = st->box_rot_camera[box_id] * st->box_rot_camera_offset[box_id].transpose();
           hrp::Vector3 hand_rot_diff_z = hand_rot_diff * hrp::Vector3(0, 0, 1);
           hrp::Vector3 hand_axis(hand_rot_diff_z[1], -hand_rot_diff_z[0], 0);
-          st->hand_rot = Eigen::AngleAxisd(std::acos(hand_rot_diff_z[2]) * st->box_balancer_gain, hand_axis) * st->hand_rot; 
+          st->hand_rot = Eigen::AngleAxisd(std::acos(hand_rot_diff_z[2]) * st->box_balancer_rot_gain, hand_axis) * st->hand_rot; 
           //std::cerr << "hand_rot_diff_z: " << hand_rot_diff_z[0] << " " << hand_rot_diff_z[1] << " " << hand_rot_diff_z[2] << std::endl;
-        }*/
+        }
 
-        if (st->hand_rot.angle() > 0.2) st->hand_rot.angle() = 0.2;//0.5
+        if (st->hand_rot.angle() > 0.5) st->hand_rot.angle() = 0.5;//0.5
     } else if (!st->box_control_mode) {
-        st->hand_rot.angle() = (1 - st->box_balancer_gain) * st->hand_rot.angle();
+        st->hand_rot.angle() = 0.997 * st->hand_rot.angle();
     }
 
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
@@ -2406,9 +2405,9 @@ void AutoBalancer::stopStabilizer(void)
   st->stopStabilizer();
 }
 
-void AutoBalancer::startBoxBalancer(double gain)
+void AutoBalancer::startBoxBalancer(double gain_pos, double gain_rot)
 {
-  st->startBoxBalancer(gain);
+  st->startBoxBalancer(gain_pos, gain_rot);
 }
 
 void AutoBalancer::stopBoxBalancer(void)

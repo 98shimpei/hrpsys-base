@@ -28,11 +28,11 @@ public:
   CORBA::Boolean stopAutoBalancer();
   void startStabilizer(void);
   void stopStabilizer(void);
-  void startBoxBalancer(CORBA::Double);
+  void startBoxBalancer(CORBA::Double gain_pos, CORBA::Double gain_rot);
   void stopBoxBalancer(void);
   CORBA::Double getBoxWeight(void);
   void setBoxWeightOffset(void);
-  void startLookAtBox(CORBA::Double);
+  void startLookAtBox(CORBA::Double gain);
   void stopLookAtBox(void);
   CORBA::Boolean setGaitGeneratorParam(const OpenHRP::AutoBalancerService::GaitGeneratorParam& i_param);
   CORBA::Boolean getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGeneratorParam_out i_param);

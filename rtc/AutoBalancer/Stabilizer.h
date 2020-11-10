@@ -160,7 +160,8 @@ public:
   double box_weight_offset;
   bool box_control_mode;
   Eigen::AngleAxisd hand_rot;
-  double box_balancer_gain;
+  double box_balancer_pos_gain;
+  double box_balancer_rot_gain;
   std::map<int, hrp::Vector3> box_pos_camera;
   std::map<int, hrp::Matrix33> box_rot_camera;
   std::map<int, hrp::Vector3> box_rlocal_pos_camera;
@@ -197,7 +198,7 @@ public:
   };
   void startStabilizer(void);
   void stopStabilizer(void);
-  void startBoxBalancer(double gain);
+  void startBoxBalancer(double gain_pos, double gain_rot);
   void stopBoxBalancer(void);
   double getBoxWeight(void);
   void setBoxWeightOffset(void);
