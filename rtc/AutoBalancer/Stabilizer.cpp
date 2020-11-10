@@ -965,8 +965,8 @@ void Stabilizer::startBoxBalancer(double gain_pos, double gain_rot)
     box_llocal_pos_camera.clear();
     box_rot_camera_offset.clear();
     for (std::map<int, hrp::Matrix33>::iterator it = box_rot_camera.begin(); it != box_rot_camera.end(); ++it) {
-      box_rlocal_pos_camera[it->first] = rsensor->link->R.inverse() * (box_pos_camera[it->first] - rsensor->link->p);
-      box_llocal_pos_camera[it->first] = lsensor->link->R.inverse() * (box_pos_camera[it->first] - lsensor->link->p);
+      box_rlocal_pos_camera[it->first] = rsensor->link->R.inverse() * (hrp::Vector3(box_pos_camera[it->first][0], box_pos_camera[it->first][1], rsensor->link->p[2]) - rsensor->link->p);
+      box_llocal_pos_camera[it->first] = lsensor->link->R.inverse() * (hrp::Vector3(box_pos_camera[it->first][0], box_pos_camera[it->first][1], lsensor->link->p[2]) - lsensor->link->p);
       box_rot_camera_offset[it->first] = box_rot_camera[it->first];
     }
 }

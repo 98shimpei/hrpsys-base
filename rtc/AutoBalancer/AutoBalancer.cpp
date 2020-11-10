@@ -1064,7 +1064,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
 
       hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
       hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
-      hrp::Vector3 box_offset = rsensor->link->p + rsensor->link->R * st->box_rlocal_pos;
       /*m_shimpei.data[0] = st->stikp[2].ee_pos[0];//right hand pos
       m_shimpei.data[1] = st->stikp[2].ee_pos[1];
       m_shimpei.data[2] = st->stikp[2].ee_pos[2];*/
@@ -1691,15 +1690,16 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         int box_id = 7;
         //camera pos
         if (st->box_rlocal_pos_camera.find(box_id) != st->box_rlocal_pos_camera.end() && st->box_pos_camera.find(box_id) != st->box_pos_camera.end()){
+          //calc dest rot
           hrp::Vector3 box_offset_camera = rsensor->link->p + rsensor->link->R * st->box_rlocal_pos_camera[box_id];
-          hrp::Vector3 hand_axis((st->box_pos_camera[box_id] - box_offset_camera)(1), -(st->box_pos_camera[box_id] - box_offset_camera)(0), 0);
-          st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * st->box_balancer_pos_gain, hand_axis) * st->hand_rot;
-        }
+          hrp::Vector3 box_rot_z = (st->box_rot_camera_offset[box_id].transpose() * st->box_rot_camera[box_id]) * hrp::Vector3(0, 0, 1);
+          hrp::Vector3 tmp_vector = box_rot_z * ((st->box_pos_camera[box_id] - box_offset_camera)[2] / box_rot_z[2]);
+          hrp::Vector3 box_axis((st->box_pos_camera[box_id] - box_offset_camera - box_rot_z)(1), -(st->box_pos_camera[box_id] - box_offset_camera - box_rot_z)(0), 0);
+          Eigen::AngleAxisd box_dest_rot = Eigen::AngleAxisd(box_axis.norm() * st->box_balancer_pos_gain, box_axis);
 
-        //camera rot
-        if (st->box_rot_camera_offset.find(box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(box_id) != st->box_rot_camera.end()){
+          //follow dest rot
           Eigen::AngleAxisd hand_rot_diff;
-          hand_rot_diff = st->box_rot_camera[box_id] * st->box_rot_camera_offset[box_id].transpose();
+          hand_rot_diff = st->box_rot_camera[box_id] * (st->box_rot_camera_offset[box_id] * box_dest_rot).transpose();
           hrp::Vector3 hand_rot_diff_z = hand_rot_diff * hrp::Vector3(0, 0, 1);
           hrp::Vector3 hand_axis(hand_rot_diff_z[1], -hand_rot_diff_z[0], 0);
           st->hand_rot = Eigen::AngleAxisd(std::acos(hand_rot_diff_z[2]) * st->box_balancer_rot_gain, hand_axis) * st->hand_rot; 
