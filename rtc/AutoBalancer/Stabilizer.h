@@ -30,6 +30,7 @@
 #include "../ImpedanceController/RatsMatrix.h"
 #include "../TorqueFilter/IIRFilter.h"
 #include "../SequencePlayer/interpolator.h"
+#include "hrpsys/idl/RobotHardwareService.hh"
 
 // </rtc-template>
 
@@ -51,6 +52,7 @@ private:
   std::string print_str;
 
 public:
+  enum cphase {LANDING_PHASE=-1, SWING_PHASE=0, SUPPORT_PHASE=1};
   struct STIKParam {
     std::string target_name; // Name of end link
     std::string ee_name; // Name of ee (e.g., rleg, lleg, ...)
@@ -74,6 +76,10 @@ public:
     double avoid_gain, reference_gain, max_limb_length, limb_length_margin;
     size_t ik_loop_count;
     Eigen::AngleAxisd ref_theta, act_theta, omega;
+    // joint servo control parameter
+    cphase contact_phase;
+    double phase_time;
+    hrp::dvector support_pgain,support_dgain,landing_pgain,landing_dgain, swing_pgain, swing_dgain;
   };
   enum cmode {MODE_IDLE, MODE_AIR, MODE_ST, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_AIR} control_mode;
   // members
@@ -126,6 +132,7 @@ public:
   // Total foot moment around the foot origin coords (relative to foot origin coords)
   hrp::Vector3 ref_total_foot_origin_moment, act_total_foot_origin_moment;
   hrp::Vector3 eefm_swing_pos_damping_gain, eefm_swing_rot_damping_gain;
+  double swing2landing_transition_time, landing_phase_time, landing2support_transition_time, support_phase_min_time, support2swing_transition_time;
   double total_mass, transition_time, cop_check_margin, contact_decision_threshold;
   std::vector<double> cp_check_margin, tilt_margin;
   OpenHRP::AutoBalancerService::EmergencyCheckMode emergency_check_mode;
@@ -145,13 +152,17 @@ public:
   std::map<std::string, interpolator*> swing_modification_interpolator;
   std::vector<bool> is_foot_touch;
   std::vector<hrp::Vector3> touchdown_d_pos, touchdown_d_rpy;
+  bool use_force_sensor;
+  // joint servo control
+  OpenHRP::RobotHardwareService::JointControlMode joint_control_mode;
+  RTC::CorbaConsumer<OpenHRP::RobotHardwareService> m_robotHardwareService0;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),
       control_mode(MODE_IDLE),
       st_algorithm(OpenHRP::AutoBalancerService::TPCC),
       emergency_check_mode(OpenHRP::AutoBalancerService::NO_CHECK),
-      szd(NULL),
+      szd(NULL), joint_control_mode(OpenHRP::RobotHardwareService::POSITION),
       m_debugLevel(0)
   {
   };
@@ -180,7 +191,9 @@ public:
   hrp::Vector3 calcDampingControl (const hrp::Vector3& tau_d, const hrp::Vector3& tau, const hrp::Vector3& prev_d,
                                    const hrp::Vector3& DD, const hrp::Vector3& TT);
   void calcContactMatrix (hrp::dmatrix& tm, const std::vector<hrp::Vector3>& contact_p);
-  void calcTorque ();
+  void setSwingSupportJointServoGains();
+  void calcExternalForce (const hrp::Vector3& cog, const hrp::Vector3& zmp, const hrp::Matrix33& rot);
+  void calcTorque (const hrp::Matrix33& rot);
   void calcRUNST();
   void moveBasePosRotForBodyRPYControl ();
   double vlimit(double value, double llimit_value, double ulimit_value);

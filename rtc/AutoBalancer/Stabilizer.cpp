@@ -132,6 +132,12 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   act_cogvel = hrp::Vector3::Zero();
   prev_act_foot_origin_rot = hrp::Matrix33::Identity();
   prev_act_foot_origin_pos = hrp::Vector3::Zero();
+  swing2landing_transition_time = 0.05;
+  landing_phase_time = 0.1;
+  landing2support_transition_time = 0.5;
+  support_phase_min_time = 0.1;
+  support2swing_transition_time = 0.05;
+  use_force_sensor = true;
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -446,7 +452,7 @@ void Stabilizer::getActualParameters ()
   for (size_t i = 0; i < stikp.size(); i++) {
     std::string limb_name = stikp[i].ee_name;
     size_t idx = contact_states_index_map[limb_name];
-    act_contact_states[idx] = isContact(idx);
+    act_contact_states[idx] = use_force_sensor ? isContact(idx) : ref_contact_states[idx];
     // m_actContactStates.data[idx] = act_contact_states[idx];
   }
   // <= Actual world frame
@@ -457,6 +463,10 @@ void Stabilizer::getActualParameters ()
     // Actual foot_origin frame =>
     act_zmp = foot_origin_rot.transpose() * (act_zmp - foot_origin_pos);
     act_cog = foot_origin_rot.transpose() * (act_cog - foot_origin_pos);
+    if (!use_force_sensor) {
+      on_ground = true;
+      act_zmp = ref_zmp;
+    }
     //act_cogvel = foot_origin_rot.transpose() * act_cogvel;
     if ((foot_origin_pos - prev_act_foot_origin_pos).norm() > 1e-2) { // assume that origin_pos changes more than 1cm when contact states change
       act_cogvel = (foot_origin_rot.transpose() * prev_act_foot_origin_rot) * act_cogvel;
@@ -780,6 +790,10 @@ void Stabilizer::getActualParametersForST ()
     }
   } // st_algorithm == OpenHRP::AutoBalancerService::EEFM
 
+  if ( joint_control_mode == OpenHRP::RobotHardwareService::TORQUE && control_mode == MODE_ST ) setSwingSupportJointServoGains();
+  calcExternalForce(foot_origin_rot * act_cog + foot_origin_pos, foot_origin_rot * new_refzmp + foot_origin_pos, foot_origin_rot); // foot origin relative => Actual world frame
+  calcTorque(foot_origin_rot);
+
   for ( int i = 0; i < m_robot->numJoints(); i++ ){
     m_robot->joint(i)->q = qrefv[i];
   }
@@ -891,12 +905,30 @@ void Stabilizer::startStabilizer(void)
     }
   }
   waitSTTransition();
+  if ( joint_control_mode == OpenHRP::RobotHardwareService::TORQUE ) {
+      std::cerr << "[" << print_str << "] " << "Moved to ST command pose and sync to TORQUE mode"  << std::endl;
+      m_robotHardwareService0->setServoGainPercentage("all",100);//tmp
+      m_robotHardwareService0->setServoTorqueGainPercentage("all",100);
+      for(size_t i = 0; i < stikp.size(); i++) {
+          STIKParam& ikp = stikp[i];
+          hrp::JointPathExPtr jpe = jpe_v[i];
+          for(size_t j = 0; j < ikp.support_pgain.size(); j++) {
+              m_robotHardwareService0->setServoPGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.support_pgain(j),3);
+              m_robotHardwareService0->setServoDGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.support_dgain(j),3);
+          }
+      }
+  }
   std::cerr << "[" << print_str << "] " << "Start ST DONE"  << std::endl;
 }
 
 void Stabilizer::stopStabilizer(void)
 {
   waitSTTransition(); // Wait until all transition has finished
+  if ( joint_control_mode == OpenHRP::RobotHardwareService::TORQUE ) {
+      m_robotHardwareService0->setServoGainPercentage("all",100);
+      usleep(5*200*dt* 1e6);
+      m_robotHardwareService0->setServoTorqueGainPercentage("all",0);
+  }
   {
     Guard guard(m_mutex);
     if ( (control_mode == MODE_ST || control_mode == MODE_AIR) ) {
@@ -952,7 +984,7 @@ void Stabilizer::calcContactMatrix (hrp::dmatrix& tm, const std::vector<hrp::Vec
   // }
 }
 
-void Stabilizer::calcTorque ()
+void Stabilizer::calcTorque (const hrp::Matrix33& rot)
 {
   m_robot->calcForwardKinematics();
   // buffers for the unit vector method
@@ -1002,20 +1034,29 @@ void Stabilizer::calcTorque ()
   //   // std::cerr << ":aa "; rats::print_matrix(std::cerr, aa);
   //   // std::cerr << ":dv "; rats::print_vector(std::cerr, dv);
   // }
-  for (size_t j = 0; j < 2; j++) {
-    hrp::JointPathEx jm = hrp::JointPathEx(m_robot, m_robot->rootLink(), m_robot->sensor<hrp::ForceSensor>(stikp[j].sensor_name)->link, dt);
-    hrp::dmatrix JJ;
-    jm.calcJacobian(JJ);
-    hrp::dvector ft(6);
-    for (size_t i = 0; i < 6; i++) ft(i) = contact_ft(i+j*6);
-    hrp::dvector tq_from_extft(jm.numJoints());
-    tq_from_extft = JJ.transpose() * ft;
-    // if (loop%200==0) {
-    //   std::cerr << ":ft "; rats::print_vector(std::cerr, ft);
-    //   std::cerr << ":JJ "; rats::print_matrix(std::cerr, JJ);
-    //   std::cerr << ":tq_from_extft "; rats::print_vector(std::cerr, tq_from_extft);
-    // }
-    for (size_t i = 0; i < jm.numJoints(); i++) jm.joint(i)->u -= tq_from_extft(i);
+  // for (size_t j = 0; j < 2; j++) {//numContacts
+  // hrp::JointPathEx jm = hrp::JointPathEx(m_robot, m_robot->rootLink(), m_robot->sensor<hrp::ForceSensor>(stikp[j].sensor_name)->link, dt);
+  if ( control_mode == MODE_ST ) {
+      for (size_t j = 0; j < stikp.size(); j++) {
+          STIKParam& ikp = stikp[j];
+          hrp::Link* target = m_robot->link(ikp.target_name);
+          size_t idx = contact_states_index_map[ikp.ee_name];
+          hrp::JointPathEx jm = hrp::JointPathEx(m_robot, m_robot->rootLink(), target, dt);
+          hrp::dmatrix JJ;
+          jm.calcJacobian(JJ);
+          hrp::dvector ft(6);
+          // for (size_t i = 0; i < 6; i++) ft(i) = contact_ft(i+j*6);
+          ft.segment(0,3) = rot * ikp.ref_force;
+          ft.segment(3,3) = rot * ikp.ref_moment;
+          hrp::dvector tq_from_extft(jm.numJoints());
+          tq_from_extft = JJ.transpose() * ft;
+          // if (loop%200==0) {
+          //   std::cerr << ":ft "; rats::print_vector(std::cerr, ft);
+          //   std::cerr << ":JJ "; rats::print_matrix(std::cerr, JJ);
+          //   std::cerr << ":tq_from_extft "; rats::print_vector(std::cerr, tq_from_extft);
+          // }
+          for (size_t i = 0; i < jm.numJoints(); i++) jm.joint(i)->u -= tq_from_extft(i);
+      }
   }
   //hrp::dmatrix MM(6,m_robot->numJoints());
   //m_robot->calcMassMatrix(MM);
@@ -1219,6 +1260,57 @@ void Stabilizer::calcRUNST() {
       }
     }
   }
+}
+
+void Stabilizer::setSwingSupportJointServoGains()
+{
+    static double tmp_landing2support_transition_time = landing2support_transition_time;
+    for (size_t i = 0; i < stikp.size(); i++) {
+        STIKParam& ikp = stikp[i];
+        hrp::JointPathExPtr jpe = jpe_v[i];
+        if (ikp.contact_phase == SWING_PHASE && !ref_contact_states[i] && controlSwingSupportTime[i] < swing2landing_transition_time+landing_phase_time) { // SWING -> LANDING
+            ikp.contact_phase = LANDING_PHASE;
+            ikp.phase_time = 0;
+            for(size_t j = 0; j < ikp.support_pgain.size(); j++) {
+                m_robotHardwareService0->setServoPGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.landing_pgain(j),swing2landing_transition_time);
+                m_robotHardwareService0->setServoDGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.landing_dgain(j),swing2landing_transition_time);
+            }
+        }
+        if (ikp.contact_phase == LANDING_PHASE && act_contact_states[i] && ref_contact_states[i] && ikp.phase_time > swing2landing_transition_time) { // LANDING -> SUPPORT
+            ikp.contact_phase = SUPPORT_PHASE;
+            ikp.phase_time = 0;
+            tmp_landing2support_transition_time = std::min(landing2support_transition_time, controlSwingSupportTime[i]);
+            for(size_t j = 0; j < ikp.support_pgain.size(); j++) {
+                m_robotHardwareService0->setServoPGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.support_pgain(j),tmp_landing2support_transition_time);
+                m_robotHardwareService0->setServoDGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.support_dgain(j),tmp_landing2support_transition_time);
+            }
+        }
+        // if (ikp.contact_phase == SUPPORT_PHASE && !act_contact_states[i] && ikp.phase_time > tmp_landing2support_transition_time) { // SUPPORT -> SWING
+        if (ikp.contact_phase == SUPPORT_PHASE && !act_contact_states[i] && ikp.phase_time > tmp_landing2support_transition_time+support_phase_min_time
+            && ( (ref_contact_states[i] && controlSwingSupportTime[i] < 0.2) || !ref_contact_states[i] )) { // SUPPORT -> SWING
+            ikp.contact_phase = SWING_PHASE;
+            ikp.phase_time = 0;
+            for(size_t j = 0; j < ikp.support_pgain.size(); j++) {
+                m_robotHardwareService0->setServoPGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.swing_pgain(j),support2swing_transition_time);
+                m_robotHardwareService0->setServoDGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.swing_dgain(j),support2swing_transition_time);
+            }
+        }
+        ikp.phase_time += dt;
+    }
+}
+
+void Stabilizer::calcExternalForce(const hrp::Vector3& cog, const hrp::Vector3& zmp, const hrp::Matrix33& rot)
+{
+    // cog, zmp must be in the same coords with stikp.ref_forece
+    hrp::Vector3 total_force = hrp::Vector3::Zero();
+    for (size_t j = 0; j < stikp.size(); j++) {
+        total_force(2) += stikp[j].ref_force(2); // only fz
+    }
+    total_force.segment(0,2) = (cog.segment(0,2) - zmp.segment(0,2))*total_force(2)/(cog(2) - zmp(2)); // overwrite fxy
+    for (size_t j = 0; j < stikp.size(); j++) {
+        STIKParam& ikp = stikp[j];
+        if (on_ground && total_force(2) > 1e-6) ikp.ref_force.segment(0,2) += rot.transpose() * total_force.segment(0,2) * ikp.ref_force(2)/total_force(2);// set fx,fy
+    }
 }
 
 void Stabilizer::moveBasePosRotForBodyRPYControl ()
