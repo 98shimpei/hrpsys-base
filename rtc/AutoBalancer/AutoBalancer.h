@@ -256,6 +256,7 @@ class AutoBalancer
   // CORBA Port declaration
   // <rtc-template block="corbaport_declare">
   RTC::CorbaPort m_AutoBalancerServicePort;
+  RTC::CorbaPort m_RobotHardwareServicePort;
 
   // </rtc-template>
 
