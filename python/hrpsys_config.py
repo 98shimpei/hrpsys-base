@@ -426,6 +426,7 @@ class HrpsysConfigurator(object):
             if self.octd:
                 connectPorts(self.abc.port("contactStates"), self.octd.port("contactStates"))
             connectPorts(self.abc.port("tau"), self.rh.port("tauRef"))
+            connectPorts(self.abc.port("RobotHardwareService"), self.rh.port("RobotHardwareService"))
 
         # connection for st
         if rtm.findPort(self.rh.ref, "lfsensor") and rtm.findPort(
@@ -973,6 +974,7 @@ class HrpsysConfigurator(object):
             self.connectLoggerPort(self.abc, 'originActZmp')
             self.connectLoggerPort(self.abc, 'originActCog')
             self.connectLoggerPort(self.abc, 'originActCogVel')
+            self.connectLoggerPort(self.abc, 'tau')
         if self.st != None:
             self.connectLoggerPort(self.st, 'zmp')
             self.connectLoggerPort(self.st, 'originRefZmp')

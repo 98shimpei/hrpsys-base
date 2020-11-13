@@ -664,6 +664,14 @@ CORBA::Boolean RobotHardwareServicePort::servo(const char* jname, OpenHRP::Robot
 }
 void RobotHardwareServicePort::setServoGainPercentage(const char *jname, double limit) {
 }
+void RobotHardwareServicePort::setServoPGainPercentage(const char *jname, double limit) {
+}
+void RobotHardwareServicePort::setServoDGainPercentage(const char *jname, double limit) {
+}
+void RobotHardwareServicePort::setServoPGainPercentageWithTime(const char *jname, double limit, double time) {
+}
+void RobotHardwareServicePort::setServoDGainPercentageWithTime(const char *jname, double limit, double time) {
+}
 void RobotHardwareServicePort::setServoTorqueGainPercentage(const char *jname, double limit) {
 }
 void RobotHardwareServicePort::setServoErrorLimit(const char *jname, double limit) {
