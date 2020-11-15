@@ -76,6 +76,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_landingHeightIn("landingHeight", m_landingHeight),
       m_steppableRegionIn("steppableRegion", m_steppableRegion),
       m_boxPoseIn("boxPose", m_boxPose),
+      m_lookAtPointIn("lookAtPoint", m_lookAtPoint),
       m_qOut("q", m_qRef),
       m_qAbcOut("qAbc", m_qAbc),
       m_tauOut("tau", m_tau),
@@ -149,6 +150,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("landingHeight", m_landingHeightIn);
     addInPort("steppableRegion", m_steppableRegionIn);
     addInPort("boxPose", m_boxPoseIn);
+    addInPort("lookAtPoint", m_lookAtPointIn);
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
@@ -792,6 +794,27 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     }
 
     //カメラからboxPoseを受け取る
+    if (m_lookAtPointIn.isNew()) {
+      std::cerr << "look_at_point" << std::endl;
+      m_lookAtPointIn.read();
+
+      hrp::Vector3 tmp_pos = hrp::Vector3(
+        m_lookAtPoint.data.x,
+        m_lookAtPoint.data.y,
+        m_lookAtPoint.data.z);
+      hrp::VisionSensor* sensor;
+      m_robot->calcForwardKinematics();
+      sensor = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
+
+      hrp::Vector3 world_pos = sensor->link->R * sensor->localPos + sensor->link->p;
+      hrp::Matrix33 world_rot = sensor->link->R * sensor->localR * Eigen::AngleAxisd(deg2rad(180), Eigen::Vector3d::UnitX());
+      tmp_pos = world_pos + world_rot * tmp_pos;
+
+      if (st->look_at_point.norm() < 0.001 || (tmp_pos - st->look_at_point).norm() < 0.5) {//外れ値除去
+        st->look_at_point = tmp_pos;
+      }
+    }
+
     if (m_boxPoseIn.isNew()) {
       m_boxPoseIn.read();
 
@@ -1585,10 +1608,10 @@ void AutoBalancer::updateHeadPose ()
     sensor = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
   }*/
   sensor = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
-  if (st->look_at_box_mode && st->box_pos_camera.find(7) != st->box_pos_camera.end()) {
+  if (st->look_at_box_mode && st->look_at_point.norm() > 0.001) {
     hrp::Vector3 world_pos = sensor->link->R * sensor->localPos + sensor->link->p;
     hrp::Matrix33 world_rot = sensor->link->R * sensor->localR * Eigen::AngleAxisd(deg2rad(180), Eigen::Vector3d::UnitX());
-    hrp::Vector3 tmp = world_rot.inverse() * (st->box_pos_camera[7] - world_pos);
+    hrp::Vector3 tmp = world_rot.inverse() * (st->look_at_point - world_pos);
     //head_left_optical_frameの座標系で見るとx(横)方向は動きと座標が逆になる
     //y, zが逆になる(なぜかは不明)
     st->head_diff[0] -= st->look_at_box_gain * (tmp(0) / tmp(2));
@@ -1693,27 +1716,26 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     //box_balancer
 
     //手のdiffを加える前のm_robot
-    hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
-    hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
-    hrp::Vector3 box_offset = rsensor->link->p + rsensor->link->R * st->box_rlocal_pos;
     if (st->box_control_mode /*&& st->box_weight > 1.0*/) {
         //hand force
         //hrp::Vector3 hand_axis((st->box_pos - box_offset)(1), -(st->box_pos - box_offset)(0), 0);
         //st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * st->box_balancer_gain, hand_axis) * st->hand_rot;
 
-        int box_id = 7;
+        int box_id_a = 7;
+        int box_id_b = 8;
         //camera pos
-        if (st->box_rlocal_pos_camera.find(box_id) != st->box_rlocal_pos_camera.end() && st->box_pos_camera.find(box_id) != st->box_pos_camera.end()){
+        if (st->box_rot_camera_offset.find(box_id_a) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(box_id_a) != st->box_rot_camera.end() &&
+            st->box_rot_camera_offset.find(box_id_b) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(box_id_b) != st->box_rot_camera.end()){
           //calc dest rot
-          hrp::Vector3 box_offset_camera = rsensor->link->p + rsensor->link->R * st->box_rlocal_pos_camera[box_id];
-          hrp::Vector3 box_rot_z = (st->box_rot_camera_offset[box_id].transpose() * st->box_rot_camera[box_id]) * hrp::Vector3(0, 0, 1);
-          hrp::Vector3 tmp_vector = box_rot_z * ((st->box_pos_camera[box_id] - box_offset_camera)[2] / box_rot_z[2]);
-          hrp::Vector3 box_axis((st->box_pos_camera[box_id] - box_offset_camera - box_rot_z)(1), -(st->box_pos_camera[box_id] - box_offset_camera - box_rot_z)(0), 0);
-          Eigen::AngleAxisd box_dest_rot = Eigen::AngleAxisd(box_axis.norm() * st->box_balancer_pos_gain, box_axis);
+          //下の箱座標系で見た上の箱のoffset座標
+          hrp::Vector3 box_offset_camera = st->box_rot_camera[box_id_b] * st->box_local_pos + st->box_pos_camera[box_id_b];
+          hrp::Vector3 box_misalignment = st->box_pos_camera[box_id_a] - box_offset_camera;
+          hrp::Vector3 box_axis(box_misalignment(1), -box_misalignment(0), 0);
+          Eigen::AngleAxisd box_dest_rot = Eigen::AngleAxisd(box_misalignment.norm() * st->box_balancer_pos_gain, box_axis);
 
           //follow dest rot
           Eigen::AngleAxisd hand_rot_diff;
-          hand_rot_diff = st->box_rot_camera[box_id] * (st->box_rot_camera_offset[box_id] * box_dest_rot).transpose();
+          hand_rot_diff = st->box_rot_camera[box_id_a] * (st->box_rot_camera_offset[box_id_a] * box_dest_rot).transpose();
           hrp::Vector3 hand_rot_diff_z = hand_rot_diff * hrp::Vector3(0, 0, 1);
           hrp::Vector3 hand_axis(hand_rot_diff_z[1], -hand_rot_diff_z[0], 0);
           st->hand_rot = Eigen::AngleAxisd(std::acos(hand_rot_diff_z[2]) * st->box_balancer_rot_gain, hand_axis) * st->hand_rot; 
@@ -1730,6 +1752,8 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
          && it->first.find("arm") != std::string::npos ) {
             it->second.target_r0 = st->hand_rot * it->second.target_r0;
             
+            hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
+            hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
             hrp::Vector3 box_pos_dummy = (rsensor->link->p + lsensor->link->p) * 0.5;
             hrp::Vector3 box_rlocal_pos_dummy = rsensor->link->R.inverse() * (box_pos_dummy - rsensor->link->p);
             hrp::Vector3 box_llocal_pos_dummy = lsensor->link->R.inverse() * (box_pos_dummy - lsensor->link->p);

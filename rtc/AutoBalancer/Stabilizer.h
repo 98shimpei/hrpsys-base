@@ -164,8 +164,8 @@ public:
   std::map<std::string, boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > > world_force, world_moment;
   hrp::Vector3 box_pos_offset; //ignore z axis
   hrp::Vector3 box_pos; //ignore z axis, box_coordinate
-  hrp::Vector3 box_rlocal_pos;
-  hrp::Vector3 box_llocal_pos;
+  hrp::Vector3 box_local_pos;
+  hrp::Vector3 look_at_point;
   double box_weight;
   boost::circular_buffer<double> box_weight_buf; //average of 10 times
   double box_weight_offset;
@@ -175,8 +175,6 @@ public:
   double box_balancer_rot_gain;
   std::map<int, hrp::Vector3> box_pos_camera;
   std::map<int, hrp::Matrix33> box_rot_camera;
-  std::map<int, hrp::Vector3> box_rlocal_pos_camera;
-  std::map<int, hrp::Vector3> box_llocal_pos_camera;
   std::map<int, hrp::Matrix33> box_rot_camera_offset;
   double look_at_box_mode;
   double look_at_box_gain;

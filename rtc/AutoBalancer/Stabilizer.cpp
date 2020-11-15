@@ -242,8 +242,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   world_moment["lhsensor"] = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(10.0, 0.002, hrp::Vector3::Zero()));
   box_pos = hrp::Vector3::Zero();
   box_pos_offset = hrp::Vector3::Zero();
-  box_rlocal_pos = hrp::Vector3::Zero();
-  box_llocal_pos = hrp::Vector3::Zero();
+  look_at_point = hrp::Vector3::Zero();
   box_control_mode = false;
   box_weight = 0;
   box_weight_offset = 0;
@@ -986,20 +985,16 @@ void Stabilizer::startBoxBalancer(double gain_pos, double gain_rot)
 
     hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
     hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
-    box_rlocal_pos = rsensor->link->R.inverse() * (box_pos - rsensor->link->p);
-    box_llocal_pos = lsensor->link->R.inverse() * (box_pos - lsensor->link->p);
-    //hrp::Vector3 box_pos_dummy = (rsensor->link->p + lsensor->link->p) * 0.5;
-    //box_rlocal_pos = rsensor->link->R.inverse() * (box_pos_dummy - rsensor->link->p);
-    //box_llocal_pos = lsensor->link->R.inverse() * (box_pos_dummy - lsensor->link->p);
     box_balancer_pos_gain = gain_pos;
     box_balancer_rot_gain = gain_rot;
-    box_rlocal_pos_camera.clear();
-    box_llocal_pos_camera.clear();
     box_rot_camera_offset.clear();
     for (std::map<int, hrp::Matrix33>::iterator it = box_rot_camera.begin(); it != box_rot_camera.end(); ++it) {
-      box_rlocal_pos_camera[it->first] = rsensor->link->R.inverse() * (hrp::Vector3(box_pos_camera[it->first][0], box_pos_camera[it->first][1], rsensor->link->p[2]) - rsensor->link->p);
-      box_llocal_pos_camera[it->first] = lsensor->link->R.inverse() * (hrp::Vector3(box_pos_camera[it->first][0], box_pos_camera[it->first][1], lsensor->link->p[2]) - lsensor->link->p);
       box_rot_camera_offset[it->first] = box_rot_camera[it->first];
+    }
+    if (box_rot_camera.find(7) != box_rot_camera.end() && box_rot_camera.find(8) != box_rot_camera.end()) {
+      box_local_pos = box_rot_camera[8].transpose() * (box_pos_camera[7] - box_pos_camera[8]);
+    } else {
+      box_local_pos = hrp::Vector3::Zero();
     }
 }
 

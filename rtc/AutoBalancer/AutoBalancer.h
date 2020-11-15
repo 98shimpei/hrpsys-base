@@ -175,6 +175,8 @@ class AutoBalancer
   InPort<OpenHRP::TimedSteppableRegion> m_steppableRegionIn;
   OpenHRP::TimedBoxPoses m_boxPose;
   InPort<OpenHRP::TimedBoxPoses> m_boxPoseIn;
+  OpenHRP::TimedPoint m_lookAtPoint;
+  InPort<OpenHRP::TimedPoint> m_lookAtPointIn;
 
   // for debug
   TimedPoint3D m_cog;
