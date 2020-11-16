@@ -795,7 +795,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
 
     //カメラからboxPoseを受け取る
     if (m_lookAtPointIn.isNew()) {
-      std::cerr << "look_at_point" << std::endl;
       m_lookAtPointIn.read();
 
       hrp::Vector3 tmp_pos = hrp::Vector3(
@@ -810,7 +809,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       hrp::Matrix33 world_rot = sensor->link->R * sensor->localR * Eigen::AngleAxisd(deg2rad(180), Eigen::Vector3d::UnitX());
       tmp_pos = world_pos + world_rot * tmp_pos;
 
-      if (st->look_at_point.norm() < 0.001 || (tmp_pos - st->look_at_point).norm() < 0.5) {//外れ値除去
+      if (st->look_at_point.norm() < 0.001 || tmp_pos.norm() < 0.001 || (tmp_pos - st->look_at_point).norm() < 0.5) {//外れ値除去
         st->look_at_point = tmp_pos;
       }
     }
@@ -1731,7 +1730,12 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
           hrp::Vector3 box_offset_camera = st->box_rot_camera[box_id_b] * st->box_local_pos + st->box_pos_camera[box_id_b];
           hrp::Vector3 box_misalignment = st->box_pos_camera[box_id_a] - box_offset_camera;
           hrp::Vector3 box_axis(box_misalignment(1), -box_misalignment(0), 0);
-          Eigen::AngleAxisd box_dest_rot = Eigen::AngleAxisd(box_misalignment.norm() * st->box_balancer_pos_gain, box_axis);
+          double box_dest_rot_angle = box_misalignment.norm() * st->box_balancer_pos_gain;
+          if (box_dest_rot_angle > 0.2) box_dest_rot_angle = 0.2;
+          
+          Eigen::AngleAxisd box_dest_rot = Eigen::AngleAxisd(box_dest_rot_angle, box_axis.normalized());
+          std::cerr << box_misalignment.norm() << " " << box_misalignment[0] << " " << box_misalignment[1] << " " << box_misalignment[2] << std::endl;
+          std::cerr << box_axis[0] << " " << box_axis[1] << std::endl;
 
           //follow dest rot
           Eigen::AngleAxisd hand_rot_diff;
