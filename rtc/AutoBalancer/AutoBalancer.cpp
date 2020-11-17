@@ -1596,12 +1596,16 @@ void AutoBalancer::updateHeadPose ()
   double tmp16 = m_robot->joint(16)->q - st->head_diff[1];
   if (st->look_at_box_mode && st->look_at_point.norm() > 0.001) {
     //head_left_optical_frameの座標系で見るとx(横)方向は動きと座標が逆になる
-    st->head_diff[0] -= st->look_at_box_gain * (st->look_at_point(0) / st->look_at_point(2));
-    st->head_diff[1] += st->look_at_box_gain * (st->look_at_point(1) / st->look_at_point(2));
+    double head_diff_d0 = st->look_at_point(0) / st->look_at_point(2);
+    double head_diff_d1 = st->look_at_point(1) / st->look_at_point(2);
+    vlimit(head_diff_d0, -0.17, 0.17);
+    vlimit(head_diff_d1, -0.17, 0.17);
+    st->head_diff[0] -= st->look_at_box_gain * head_diff_d0;
+    st->head_diff[1] += st->look_at_box_gain * head_diff_d1;
   } else {
     //戻す
-    st->head_diff[0] *= 0.9993;//(1 - st->look_at_box_gain);
-    st->head_diff[1] *= 0.9993;//(1 - st->look_at_box_gain);
+    st->head_diff[0] *= 0.9997;//(1 - st->look_at_box_gain);
+    st->head_diff[1] *= 0.9997;//(1 - st->look_at_box_gain);
   }
   //headの角度制限確認。相互に影響する
   {
