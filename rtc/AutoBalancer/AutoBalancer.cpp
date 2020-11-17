@@ -801,17 +801,11 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         m_lookAtPoint.data.x,
         m_lookAtPoint.data.y,
         m_lookAtPoint.data.z);
-      hrp::VisionSensor* sensor;
-      m_robot->calcForwardKinematics();
-      sensor = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
 
-      hrp::Vector3 world_pos = sensor->link->R * sensor->localPos + sensor->link->p;
-      hrp::Matrix33 world_rot = sensor->link->R * sensor->localR * Eigen::AngleAxisd(deg2rad(180), Eigen::Vector3d::UnitX());
-      tmp_pos = world_pos + world_rot * tmp_pos;
-
-      if (st->look_at_point.norm() < 0.001 || tmp_pos.norm() < 0.001 || (tmp_pos - st->look_at_point).norm() < 0.5) {//外れ値除去
+      /*if (st->look_at_point.norm() < 0.001 || tmp_pos.norm() < 0.001 || (tmp_pos - st->look_at_point).norm() < 0.5) {//外れ値除去
         st->look_at_point = tmp_pos;
-      }
+      }*/
+      st->look_at_point = tmp_pos;
     }
 
     if (m_boxPoseIn.isNew()) {
@@ -1600,21 +1594,10 @@ void AutoBalancer::updateHeadPose ()
 {
   double tmp15 = m_robot->joint(15)->q - st->head_diff[0];
   double tmp16 = m_robot->joint(16)->q - st->head_diff[1];
-  hrp::VisionSensor* sensor;
-  /*if (m_robot_list.size() != 0) {
-    sensor = m_robot_list[0]->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
-  } else {
-    sensor = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
-  }*/
-  sensor = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
   if (st->look_at_box_mode && st->look_at_point.norm() > 0.001) {
-    hrp::Vector3 world_pos = sensor->link->R * sensor->localPos + sensor->link->p;
-    hrp::Matrix33 world_rot = sensor->link->R * sensor->localR * Eigen::AngleAxisd(deg2rad(180), Eigen::Vector3d::UnitX());
-    hrp::Vector3 tmp = world_rot.inverse() * (st->look_at_point - world_pos);
     //head_left_optical_frameの座標系で見るとx(横)方向は動きと座標が逆になる
-    //y, zが逆になる(なぜかは不明)
-    st->head_diff[0] -= st->look_at_box_gain * (tmp(0) / tmp(2));
-    st->head_diff[1] += st->look_at_box_gain * (tmp(1) / tmp(2));
+    st->head_diff[0] -= st->look_at_box_gain * (st->look_at_point(0) / st->look_at_point(2));
+    st->head_diff[1] += st->look_at_box_gain * (st->look_at_point(1) / st->look_at_point(2));
   } else {
     //戻す
     st->head_diff[0] *= 0.9993;//(1 - st->look_at_box_gain);
