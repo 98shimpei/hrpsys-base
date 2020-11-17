@@ -179,6 +179,9 @@ public:
   double look_at_box_mode;
   double look_at_box_gain;
   std::vector<double> head_diff;
+  int top_box_id;
+  int base_box_id;
+  boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > box_rotation_center;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),

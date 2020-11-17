@@ -1707,26 +1707,21 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         //hrp::Vector3 hand_axis((st->box_pos - box_offset)(1), -(st->box_pos - box_offset)(0), 0);
         //st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * st->box_balancer_gain, hand_axis) * st->hand_rot;
 
-        int box_id_a = 7;
-        int box_id_b = 8;
         //camera pos
-        if (st->box_rot_camera_offset.find(box_id_a) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(box_id_a) != st->box_rot_camera.end() &&
-            st->box_rot_camera_offset.find(box_id_b) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(box_id_b) != st->box_rot_camera.end()){
+        if (st->box_rot_camera_offset.find(st->top_box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(st->top_box_id) != st->box_rot_camera.end() &&
+            st->box_rot_camera_offset.find(st->base_box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()){
           //calc dest rot
           //下の箱座標系で見た上の箱のoffset座標
-          hrp::Vector3 box_offset_camera = st->box_rot_camera[box_id_b] * st->box_local_pos + st->box_pos_camera[box_id_b];
-          hrp::Vector3 box_misalignment = st->box_pos_camera[box_id_a] - box_offset_camera;
+          hrp::Vector3 box_offset_camera = st->box_rot_camera[st->base_box_id] * st->box_local_pos + st->box_pos_camera[st->base_box_id];
+          hrp::Vector3 box_misalignment = st->box_pos_camera[st->top_box_id] - box_offset_camera;
           hrp::Vector3 box_axis(box_misalignment(1), -box_misalignment(0), 0);
           double box_dest_rot_angle = box_misalignment.norm() * st->box_balancer_pos_gain;
           if (box_dest_rot_angle > 0.2) box_dest_rot_angle = 0.2;
           
           Eigen::AngleAxisd box_dest_rot = Eigen::AngleAxisd(box_dest_rot_angle, box_axis.normalized());
-          std::cerr << box_misalignment.norm() << " " << box_misalignment[0] << " " << box_misalignment[1] << " " << box_misalignment[2] << std::endl;
-          std::cerr << box_axis[0] << " " << box_axis[1] << std::endl;
-
           //follow dest rot
           Eigen::AngleAxisd hand_rot_diff;
-          hand_rot_diff = st->box_rot_camera[box_id_a] * (st->box_rot_camera_offset[box_id_a] * box_dest_rot).transpose();
+          hand_rot_diff = st->box_rot_camera[st->top_box_id] * (st->box_rot_camera_offset[st->top_box_id] * box_dest_rot).transpose();
           hrp::Vector3 hand_rot_diff_z = hand_rot_diff * hrp::Vector3(0, 0, 1);
           hrp::Vector3 hand_axis(hand_rot_diff_z[1], -hand_rot_diff_z[0], 0);
           st->hand_rot = Eigen::AngleAxisd(std::acos(hand_rot_diff_z[2]) * st->box_balancer_rot_gain, hand_axis) * st->hand_rot; 
@@ -1737,20 +1732,18 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     } else if (!st->box_control_mode) {
         st->hand_rot.angle() = 0.997 * st->hand_rot.angle();
     }
+    
+    if (st->box_rot_camera.find(st->top_box_id) != st->box_rot_camera.end()) {
+      st->box_rotation_center->passFilter(st->box_pos_camera[st->top_box_id]);
+    } else {
+      st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
+    }
 
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
          && it->first.find("arm") != std::string::npos ) {
             it->second.target_r0 = st->hand_rot * it->second.target_r0;
-            
-            hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
-            hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
-            hrp::Vector3 box_pos_dummy = (rsensor->link->p + lsensor->link->p) * 0.5;
-            hrp::Vector3 box_rlocal_pos_dummy = rsensor->link->R.inverse() * (box_pos_dummy - rsensor->link->p);
-            hrp::Vector3 box_llocal_pos_dummy = lsensor->link->R.inverse() * (box_pos_dummy - lsensor->link->p);
-    
-            ikp["rarm"].target_p0 += (st->hand_rot * rsensor->link->R * (-box_rlocal_pos_dummy) - rsensor->link->R * (-box_rlocal_pos_dummy)) * 0.5;
-            ikp["larm"].target_p0 += (st->hand_rot * lsensor->link->R * (-box_llocal_pos_dummy) - lsensor->link->R * (-box_llocal_pos_dummy)) * 0.5;
+            it->second.target_p0 += (st->hand_rot * (it->second.target_p0 - st->box_rotation_center->getCurrentValue()) - (it->second.target_p0 - st->box_rotation_center->getCurrentValue()));
         }
     }
 

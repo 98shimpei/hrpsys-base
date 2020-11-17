@@ -255,7 +255,10 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   box_balancer_rot_gain = 0;
   look_at_box_mode = false;
   look_at_box_gain = 0;
+  top_box_id = 7;
+  base_box_id = 8;
   head_diff.resize(2, 0);
+  box_rotation_center = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(5.0, 0.002, hrp::Vector3::Zero()));
 }
 
 void Stabilizer::execStabilizer()
@@ -988,11 +991,13 @@ void Stabilizer::startBoxBalancer(double gain_pos, double gain_rot)
     box_balancer_pos_gain = gain_pos;
     box_balancer_rot_gain = gain_rot;
     box_rot_camera_offset.clear();
+    top_box_id = 7;
+    base_box_id = 8;
     for (std::map<int, hrp::Matrix33>::iterator it = box_rot_camera.begin(); it != box_rot_camera.end(); ++it) {
       box_rot_camera_offset[it->first] = box_rot_camera[it->first];
     }
-    if (box_rot_camera.find(7) != box_rot_camera.end() && box_rot_camera.find(8) != box_rot_camera.end()) {
-      box_local_pos = box_rot_camera[8].transpose() * (box_pos_camera[7] - box_pos_camera[8]);
+    if (box_rot_camera.find(top_box_id) != box_rot_camera.end() && box_rot_camera.find(base_box_id) != box_rot_camera.end()) {
+      box_local_pos = box_rot_camera[base_box_id].transpose() * (box_pos_camera[top_box_id] - box_pos_camera[base_box_id]);
     } else {
       box_local_pos = hrp::Vector3::Zero();
     }
