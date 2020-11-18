@@ -1680,6 +1680,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
                 if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
                      && it->first.find("arm") != std::string::npos ) {
                     it->second.target_p0 = it->second.target_p0 + dif_p;
+                    it->second.handfix_target_p0 = it->second.target_p0;
                 }
             }
             
@@ -1695,6 +1696,13 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
              && it->first.find("arm") != std::string::npos ) {
           it->second.target_p0 = it->second.target_p0 - limited_dif_cog;
+        }
+      }
+    } else if (is_after_walking) {
+      for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
+        if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
+             && it->first.find("arm") != std::string::npos ) {
+          it->second.target_p0 = it->second.handfix_target_p0;
         }
       }
     }
@@ -2802,6 +2810,7 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_use_act_states();
   gg->is_interpolate_zmp_in_double = i_param.is_interpolate_zmp_in_double;
   gg->is_stable_go_stop_mode = i_param.is_stable_go_stop_mode;
+  gg->use_flywheel_balance = i_param.use_flywheel_balance;
   gg->zmp_delay_time_const = i_param.zmp_delay_time_const;
   gg->overwritable_max_time = i_param.overwritable_max_time;
   gg->fg_zmp_cutoff_freq = i_param.fg_zmp_cutoff_freq;
@@ -2917,6 +2926,7 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   i_param.use_act_states = gg->use_act_states;
   i_param.is_interpolate_zmp_in_double = gg->is_interpolate_zmp_in_double;
   i_param.is_stable_go_stop_mode = gg->is_stable_go_stop_mode;
+  i_param.use_flywheel_balance = gg->use_flywheel_balance;
   i_param.zmp_delay_time_const = gg->zmp_delay_time_const;
   i_param.overwritable_max_time = gg->overwritable_max_time;
   i_param.fg_zmp_cutoff_freq = gg->fg_zmp_cutoff_freq;
