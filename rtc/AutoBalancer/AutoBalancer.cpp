@@ -1733,11 +1733,12 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         st->hand_rot.angle() = 0.997 * st->hand_rot.angle();
     }
     
-    if (st->box_rot_camera.find(st->top_box_id) != st->box_rot_camera.end()) {
-      st->box_rotation_center->passFilter(st->box_pos_camera[st->top_box_id]);
+    if (st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()) {
+      st->box_rotation_center->passFilter(st->box_pos_camera[st->base_box_id]);
     } else {
       st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
     }
+
 
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
