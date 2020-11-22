@@ -210,6 +210,7 @@ public:
   };
   void startStabilizer(void);
   void stopStabilizer(void);
+  void setBoxBalancer(int t_id, int b_id);
   void startBoxBalancer(double gain_pos, double gain_rot);
   void stopBoxBalancer(void);
   double getBoxWeight(void);

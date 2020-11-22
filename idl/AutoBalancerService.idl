@@ -776,6 +776,8 @@ module OpenHRP
      */
     void stopStabilizer();
     
+    void setBoxBalancer(in unsigned short t_id, in unsigned short b_id);
+    
     void startBoxBalancer(in double gain_pos, in double gain_rot);
     
     void stopBoxBalancer();

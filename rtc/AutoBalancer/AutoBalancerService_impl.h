@@ -28,6 +28,7 @@ public:
   CORBA::Boolean stopAutoBalancer();
   void startStabilizer(void);
   void stopStabilizer(void);
+  void setBoxBalancer(CORBA::UShort t_id, CORBA::UShort b_id);
   void startBoxBalancer(CORBA::Double gain_pos, CORBA::Double gain_rot);
   void stopBoxBalancer(void);
   CORBA::Double getBoxWeight(void);

@@ -981,6 +981,20 @@ void Stabilizer::stopStabilizer(void)
   std::cerr << "[" << print_str << "] " << "Stop ST DONE"  << std::endl;
 }
 
+void Stabilizer::setBoxBalancer(int t_id, int b_id) {
+    box_rot_camera_offset.clear();
+    top_box_id = t_id;
+    base_box_id = b_id;
+    for (std::map<int, hrp::Matrix33>::iterator it = box_rot_camera.begin(); it != box_rot_camera.end(); ++it) {
+      box_rot_camera_offset[it->first] = box_rot_camera[it->first];
+    }
+    if (box_rot_camera.find(top_box_id) != box_rot_camera.end() && box_rot_camera.find(base_box_id) != box_rot_camera.end()) {
+      box_local_pos = box_rot_camera[base_box_id].transpose() * (box_pos_camera[top_box_id] - box_pos_camera[base_box_id]);
+    } else {
+      box_local_pos = hrp::Vector3::Zero();
+    }
+}
+
 void Stabilizer::startBoxBalancer(double gain_pos, double gain_rot)
 {
     if (box_weight < 0.5) {
@@ -990,21 +1004,8 @@ void Stabilizer::startBoxBalancer(double gain_pos, double gain_rot)
     std::cerr << "startBoxBalancer" << std::endl;
     box_control_mode = true;
 
-    hrp::ForceSensor* rsensor = m_robot->sensor<hrp::ForceSensor>("rhsensor");
-    hrp::ForceSensor* lsensor = m_robot->sensor<hrp::ForceSensor>("lhsensor");
     box_balancer_pos_gain = gain_pos;
     box_balancer_rot_gain = gain_rot;
-    box_rot_camera_offset.clear();
-    top_box_id = 7;
-    base_box_id = 8;
-    for (std::map<int, hrp::Matrix33>::iterator it = box_rot_camera.begin(); it != box_rot_camera.end(); ++it) {
-      box_rot_camera_offset[it->first] = box_rot_camera[it->first];
-    }
-    if (box_rot_camera.find(top_box_id) != box_rot_camera.end() && box_rot_camera.find(base_box_id) != box_rot_camera.end()) {
-      box_local_pos = box_rot_camera[base_box_id].transpose() * (box_pos_camera[top_box_id] - box_pos_camera[base_box_id]);
-    } else {
-      box_local_pos = hrp::Vector3::Zero();
-    }
 }
 
 void Stabilizer::stopBoxBalancer(void)

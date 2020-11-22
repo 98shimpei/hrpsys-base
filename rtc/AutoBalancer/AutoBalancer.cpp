@@ -2439,6 +2439,11 @@ void AutoBalancer::stopStabilizer(void)
   st->stopStabilizer();
 }
 
+void AutoBalancer::setBoxBalancer(int t_id, int b_id)
+{
+  st->setBoxBalancer(t_id, b_id);
+}
+
 void AutoBalancer::startBoxBalancer(double gain_pos, double gain_rot)
 {
   st->startBoxBalancer(gain_pos, gain_rot);
