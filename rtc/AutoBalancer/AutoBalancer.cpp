@@ -1719,7 +1719,6 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         if (st->box_rot_camera_offset.find(st->top_box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(st->top_box_id) != st->box_rot_camera.end() &&
             st->box_rot_camera_offset.find(st->base_box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()){
           //calc dest rot
-          //下の箱座標系で見た上の箱のoffset座標
           hrp::Vector3 box_offset_camera = st->box_rot_camera[st->base_box_id] * st->box_local_pos + st->box_pos_camera[st->base_box_id];
           hrp::Vector3 box_misalignment = st->box_pos_camera[st->top_box_id] - box_offset_camera;
           hrp::Vector3 box_axis(box_misalignment(1), -box_misalignment(0), 0);
@@ -1727,10 +1726,14 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
           if (box_dest_rot_angle > 0.2) box_dest_rot_angle = 0.2;
           
           Eigen::AngleAxisd box_dest_rot = Eigen::AngleAxisd(box_dest_rot_angle, box_axis.normalized());
+          hrp::Vector3 box_dest_rot_z = box_dest_rot * hrp::Vector3(0, 0, 1);
+
           //follow dest rot
           Eigen::AngleAxisd hand_rot_diff;
-          hand_rot_diff = st->box_rot_camera[st->top_box_id] * (st->box_rot_camera_offset[st->top_box_id] * box_dest_rot).transpose();
+          //hand_rot_diff = st->box_rot_camera[st->top_box_id] * (st->box_rot_camera_offset[st->top_box_id] * box_dest_rot).transpose();
+          hand_rot_diff = st->box_rot_camera[st->top_box_id] * st->box_rot_camera_offset[st->top_box_id].transpose();
           hrp::Vector3 hand_rot_diff_z = hand_rot_diff * hrp::Vector3(0, 0, 1);
+          hand_rot_diff_z = hand_rot_diff_z - box_dest_rot_z;
           hrp::Vector3 hand_axis(hand_rot_diff_z[1], -hand_rot_diff_z[0], 0);
           st->hand_rot = Eigen::AngleAxisd(std::acos(hand_rot_diff_z[2]) * st->box_balancer_rot_gain, hand_axis) * st->hand_rot; 
           //std::cerr << "hand_rot_diff_z: " << hand_rot_diff_z[0] << " " << hand_rot_diff_z[1] << " " << hand_rot_diff_z[2] << std::endl;
