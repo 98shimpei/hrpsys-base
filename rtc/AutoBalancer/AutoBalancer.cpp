@@ -808,8 +808,14 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       st->look_at_point = tmp_pos;
     }
 
+    st->box_update_time_count++;
     if (m_boxPoseIn.isNew()) {
       m_boxPoseIn.read();
+      st->box_update_flag = true;
+      st->box_update_time = m_dt * st->box_update_time_count;
+      st->box_update_time_count = 0;
+      std::cerr << "update_camera" << std::endl;
+      std::cerr << st->box_update_time << std::endl;
 
       // get keys
       std::list<int> keys;
@@ -1115,14 +1121,9 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         m_shimpei.data[10] = 0;
         m_shimpei.data[11] = 0;
       }
-      m_shimpei.data[12] = m_robot->joint(15)->q;
-      /*if (m_robot_list.size() > 0) {
-        m_shimpei.data[13] = m_robot_list[0]->joint(15)->q;
-      } else {
-        m_shimpei.data[13] = m_robot->joint(15)->q;
-      }*/
-      m_shimpei.data[13] = m_robot->joint(15)->q;
-      m_shimpei.data[14] = m_robot->joint(16)->q;
+      m_shimpei.data[12] = st->hand_diff[0];
+      m_shimpei.data[13] = st->hand_diff_d[0];
+      m_shimpei.data[14] = st->hand_diff[1];
       m_shimpei.tm = m_qRef.tm;
       m_shimpeiOut.write();
       
@@ -1632,6 +1633,17 @@ void AutoBalancer::updateHeadPose ()
   m_robot->joint(16)->q = tmp16 + st->head_diff[1];
 }
 
+double box_gain_function(const double x) {
+  double cut = 0.03;
+  double type = 1.0;
+  double coef = 1.0;
+  if (std::abs(x) < cut) {
+    coef = std::abs(x) / cut;
+  }
+  double ans = x * std::pow(coef, type);
+  return ans;
+}
+
 void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords)
 {
     // Move hand for hand fix mode
@@ -1718,25 +1730,26 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         //camera pos
         if (st->box_rot_camera_offset.find(st->top_box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(st->top_box_id) != st->box_rot_camera.end() &&
             st->box_rot_camera_offset.find(st->base_box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()){
-          //calc dest rot
-          hrp::Vector3 box_offset_camera = st->box_rot_camera[st->base_box_id] * st->box_local_pos + st->box_pos_camera[st->base_box_id];
-          hrp::Vector3 box_misalignment = st->box_pos_camera[st->top_box_id] - box_offset_camera;
-          hrp::Vector3 box_axis(box_misalignment(1), -box_misalignment(0), 0);
-          double box_dest_rot_angle = box_misalignment.norm() * st->box_balancer_pos_gain;
-          if (box_dest_rot_angle > 0.2) box_dest_rot_angle = 0.2;
-          
-          Eigen::AngleAxisd box_dest_rot = Eigen::AngleAxisd(box_dest_rot_angle, box_axis.normalized());
-          hrp::Vector3 box_dest_rot_z = box_dest_rot * hrp::Vector3(0, 0, 1);
+          if (st->box_update_flag) {
+            std::cerr << "box_balancer" << std::endl;
+            st->box_update_flag = false;
+            //calc dest rot
+            hrp::Vector3 box_offset_camera = st->box_rot_camera[st->base_box_id] * st->box_local_pos + st->box_pos_camera[st->base_box_id];
+            hrp::Vector3 box_misalignment = st->box_pos_camera[st->top_box_id] - box_offset_camera;
+            hrp::Vector3 box_axis(box_misalignment(1), -box_misalignment(0), 0);
+            double box_dest_rot_angle = box_misalignment.norm() * st->box_balancer_pos_gain;
+            if (box_dest_rot_angle > 0.2) box_dest_rot_angle = 0.2;
+            
+            Eigen::AngleAxisd box_dest_rot = Eigen::AngleAxisd(box_dest_rot_angle, box_axis.normalized());
+            hrp::Vector3 box_dest_rot_z = box_dest_rot * hrp::Vector3(0, 0, 1);
 
-          //follow dest rot
-          Eigen::AngleAxisd hand_rot_diff;
-          //hand_rot_diff = st->box_rot_camera[st->top_box_id] * (st->box_rot_camera_offset[st->top_box_id] * box_dest_rot).transpose();
-          hand_rot_diff = st->box_rot_camera[st->top_box_id] * st->box_rot_camera_offset[st->top_box_id].transpose();
-          hrp::Vector3 hand_rot_diff_z = hand_rot_diff * hrp::Vector3(0, 0, 1);
-          hand_rot_diff_z = hand_rot_diff_z - box_dest_rot_z;
-          hrp::Vector3 hand_axis(hand_rot_diff_z[1], -hand_rot_diff_z[0], 0);
-          st->hand_rot = Eigen::AngleAxisd(std::acos(hand_rot_diff_z[2]) * st->box_balancer_rot_gain, hand_axis) * st->hand_rot; 
-          //std::cerr << "hand_rot_diff_z: " << hand_rot_diff_z[0] << " " << hand_rot_diff_z[1] << " " << hand_rot_diff_z[2] << std::endl;
+            //follow dest rot
+            hrp::Vector3 box_now_rot_z = (st->box_rot_camera[st->top_box_id] * st->box_rot_camera_offset[st->top_box_id].transpose()) * hrp::Vector3(0, 0, 1);
+            hrp::Vector3 tmp = box_now_rot_z - box_dest_rot_z;
+            st->hand_diff_d = 0.5 * st->hand_diff_d + 0.5 * (tmp - st->hand_diff)/st->box_update_time;
+            st->hand_diff = tmp;
+          }
+          st->hand_rot = Eigen::AngleAxisd(-(box_gain_function(st->hand_diff[0]) * st->box_balancer_rot_gain_p + st->hand_diff_d[0] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitY()) * Eigen::AngleAxisd((box_gain_function(st->hand_diff[1]) * st->box_balancer_rot_gain_p + st->hand_diff_d[1] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitX()) * st->hand_rot; 
         }
 
         if (st->hand_rot.angle() > 0.5) st->hand_rot.angle() = 0.5;//0.5
@@ -2444,9 +2457,9 @@ void AutoBalancer::setBoxBalancer(int t_id, int b_id)
   st->setBoxBalancer(t_id, b_id);
 }
 
-void AutoBalancer::startBoxBalancer(double gain_pos, double gain_rot)
+void AutoBalancer::startBoxBalancer(double gain_pos, double gain_rot_p, double gain_rot_d)
 {
-  st->startBoxBalancer(gain_pos, gain_rot);
+  st->startBoxBalancer(gain_pos, gain_rot_p, gain_rot_d);
 }
 
 void AutoBalancer::stopBoxBalancer(void)

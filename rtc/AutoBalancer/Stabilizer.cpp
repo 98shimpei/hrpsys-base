@@ -250,9 +250,15 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   for (boost::circular_buffer<double>::iterator it = box_weight_buf.begin(); it != box_weight_buf.end(); ++it) {
     *it = 0;
   }
+  hrp::Vector3 hand_diff = hrp::Vector3::Zero();
+  hrp::Vector3 hand_diff_d = hrp::Vector3::Zero();
   hand_rot = Eigen::AngleAxisd(0, hrp::Vector3::UnitX());
   box_balancer_pos_gain = 0;
-  box_balancer_rot_gain = 0;
+  box_balancer_rot_gain_p = 0;
+  box_balancer_rot_gain_d = 0;
+  box_update_flag = false;
+  box_update_time = 0.0;
+  box_update_time_count = 0;
   look_at_box_mode = false;
   look_at_box_gain = 0;
   top_box_id = 7;
@@ -995,7 +1001,7 @@ void Stabilizer::setBoxBalancer(int t_id, int b_id) {
     }
 }
 
-void Stabilizer::startBoxBalancer(double gain_pos, double gain_rot)
+void Stabilizer::startBoxBalancer(double gain_pos, double gain_rot_p, double gain_rot_d)
 {
     if (box_weight < 0.5) {
       std::cerr << "please call after lift boxes" << std::endl;
@@ -1005,7 +1011,8 @@ void Stabilizer::startBoxBalancer(double gain_pos, double gain_rot)
     box_control_mode = true;
 
     box_balancer_pos_gain = gain_pos;
-    box_balancer_rot_gain = gain_rot;
+    box_balancer_rot_gain_p = gain_rot_p;
+    box_balancer_rot_gain_d = gain_rot_d;
 }
 
 void Stabilizer::stopBoxBalancer(void)

@@ -170,13 +170,19 @@ public:
   boost::circular_buffer<double> box_weight_buf; //average of 10 times
   double box_weight_offset;
   bool box_control_mode;
+  hrp::Vector3 hand_diff;
+  hrp::Vector3 hand_diff_d;
   Eigen::AngleAxisd hand_rot;
   double box_balancer_pos_gain;
-  double box_balancer_rot_gain;
+  double box_balancer_rot_gain_p;
+  double box_balancer_rot_gain_d;
   std::map<int, hrp::Vector3> box_pos_camera;
   std::map<int, hrp::Matrix33> box_rot_camera;
   std::map<int, hrp::Matrix33> box_rot_camera_offset;
-  double look_at_box_mode;
+  bool box_update_flag;
+  double box_update_time;
+  int box_update_time_count;
+  bool look_at_box_mode;
   double look_at_box_gain;
   std::vector<double> head_diff;
   int top_box_id;
@@ -211,7 +217,7 @@ public:
   void startStabilizer(void);
   void stopStabilizer(void);
   void setBoxBalancer(int t_id, int b_id);
-  void startBoxBalancer(double gain_pos, double gain_rot);
+  void startBoxBalancer(double gain_pos, double gain_rot_p, double gain_rot_d);
   void stopBoxBalancer(void);
   double getBoxWeight(void);
   void setBoxWeightOffset(void);
