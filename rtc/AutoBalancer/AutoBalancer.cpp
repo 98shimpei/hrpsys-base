@@ -677,6 +677,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
 {
   // std::cerr << "AutoBalancer::onExecute(" << ec_id << ")" << std::endl;
     loop ++;
+    st->m_debugLevel = m_debugLevel;
 
     if (is_emergency_step_mode && st->is_emergency_step && !gg_is_walking && !is_stop_mode) {
       gg->set_is_emergency_step(true);

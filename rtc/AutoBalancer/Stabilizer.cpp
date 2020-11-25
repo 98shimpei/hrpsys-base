@@ -805,6 +805,10 @@ void Stabilizer::getActualParametersForST ()
         // Divide pos_ctrl into rfoot and lfoot
         stikp[0].d_foot_pos = -0.5 * pos_ctrl;
         stikp[1].d_foot_pos = 0.5 * pos_ctrl;
+        if ( joint_control_mode == OpenHRP::RobotHardwareService::TORQUE ) {
+            stikp[0].d_foot_pos = hrp::Vector3::Zero();
+            stikp[1].d_foot_pos = hrp::Vector3::Zero();
+        }
       }
       if (DEBUGP) {
         std::cerr << "[" << print_str << "] Control values" << std::endl;
