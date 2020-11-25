@@ -112,7 +112,7 @@ struct ImpedanceOutputGenerator
         target_p1 = target_p0;
         target_r1 = target_r0;
     };
-    void calcTargetVelocity (hrp::Vector3& vel_p, hrp::Vector3& vel_r,
+    void calcTargetVelocity (hrp::Vector3& vel_p, hrp::Vector3& vel_r, hrp::Vector3& vel_target_pos,
                                 const hrp::Matrix33& eeR,
                                 const hrp::Vector3& force_diff, const hrp::Vector3& moment_diff,
                                 const double _dt, const bool printp = false, const std::string& print_str = "", const std::string& ee_name = "")
@@ -126,7 +126,7 @@ struct ImpedanceOutputGenerator
             std::cerr << "[" << print_str << "]   tgt1 = " << target_p1.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "[", "]")) << "[m]" << std::endl;
             std::cerr << "[" << print_str << "]   tgt2 = " << target_p2.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "[", "]")) << "[m]" << std::endl;
         }
-        hrp::Vector3 dif_pos1, dif_rot1, dif_pos2, dif_rot2, vel_target_pos, vel_target_rot;
+        hrp::Vector3 dif_pos1, dif_rot1, dif_pos2, dif_rot2, vel_target_rot;
         dif_pos1 = output_p1 - target_p1;
         dif_pos2 = output_p2 - target_p2;
         vel_target_pos = target_p0 - current_p1;

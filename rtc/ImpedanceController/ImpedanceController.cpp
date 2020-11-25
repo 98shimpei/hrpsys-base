@@ -53,6 +53,8 @@ ImpedanceController::ImpedanceController(RTC::Manager* manager)
       m_baseRpyIn("baseRpyIn", m_baseRpy),
       m_rpyIn("rpy", m_rpy),
       m_qOut("q", m_q),
+      m_velTargetPosROut("velTargetPosR", m_velTargetPosR),
+      m_velTargetPosLOut("velTargetPosL", m_velTargetPosL),
       m_ImpedanceControllerServicePort("ImpedanceControllerService"),
       // </rtc-template>
       m_robot(hrp::BodyPtr()),
@@ -86,6 +88,8 @@ RTC::ReturnCode_t ImpedanceController::onInitialize()
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
+    addOutPort("velTargetPosR", m_velTargetPosROut);
+    addOutPort("velTargetPosL", m_velTargetPosLOut);
   
     // Set service provider to Ports
     m_ImpedanceControllerServicePort.registerProvider("service0", "ImpedanceControllerService", m_service0);
@@ -317,110 +321,118 @@ RTC::ReturnCode_t ImpedanceController::onDeactivated(RTC::UniqueId ec_id)
 #define DEBUGP ((m_debugLevel==1 && loop%200==0) || m_debugLevel > 1 )
 RTC::ReturnCode_t ImpedanceController::onExecute(RTC::UniqueId ec_id)
 {
-    //std::cout << "ImpedanceController::onExecute(" << ec_id << ")" << std::endl;
-    loop ++;
+  //std::cout << "ImpedanceController::onExecute(" << ec_id << ")" << std::endl;
+  loop ++;
 
-    // check dataport input
-    for (unsigned int i=0; i<m_forceIn.size(); i++){
-        if ( m_forceIn[i]->isNew() ) {
-            m_forceIn[i]->read();
-        }
-        if ( m_ref_forceIn[i]->isNew() ) {
-            m_ref_forceIn[i]->read();
-        }
+  // check dataport input
+  for (unsigned int i=0; i<m_forceIn.size(); i++){
+    if ( m_forceIn[i]->isNew() ) {
+      m_forceIn[i]->read();
     }
-    if (m_basePosIn.isNew()) {
-      m_basePosIn.read();
+    if ( m_ref_forceIn[i]->isNew() ) {
+      m_ref_forceIn[i]->read();
     }
-    if (m_baseRpyIn.isNew()) {
-      m_baseRpyIn.read();
-    }
-    if (m_rpyIn.isNew()) {
-      m_rpyIn.read();
-    }
-    if (m_qCurrentIn.isNew()) {
-      m_qCurrentIn.read();
-    }
-    if (m_qRefIn.isNew()) {
-        m_qRefIn.read();
-        m_q.tm = m_qRef.tm;
-    }
-    if ( m_qRef.data.length() ==  m_robot->numJoints() &&
-         m_qCurrent.data.length() ==  m_robot->numJoints() ) {
+  }
+  if (m_basePosIn.isNew()) {
+    m_basePosIn.read();
+  }
+  if (m_baseRpyIn.isNew()) {
+    m_baseRpyIn.read();
+  }
+  if (m_rpyIn.isNew()) {
+    m_rpyIn.read();
+  }
+  if (m_qCurrentIn.isNew()) {
+    m_qCurrentIn.read();
+  }
+  if (m_qRefIn.isNew()) {
+      m_qRefIn.read();
+      m_q.tm = m_qRef.tm;
+  }
+  if ( m_qRef.data.length() ==  m_robot->numJoints() &&
+       m_qCurrent.data.length() ==  m_robot->numJoints() ) {
 
-        if ( DEBUGP ) {
-          std::cerr << "[" << m_profile.instance_name << "] qRef = ";
-            for ( unsigned int i = 0; i <  m_qRef.data.length(); i++ ){
-                std::cerr << " " << m_qRef.data[i];
-            }
-            std::cerr << std::endl;
-        }
+    if ( DEBUGP ) {
+      std::cerr << "[" << m_profile.instance_name << "] qRef = ";
+      for ( unsigned int i = 0; i <  m_qRef.data.length(); i++ ){
+        std::cerr << " " << m_qRef.data[i];
+      }
+      std::cerr << std::endl;
+    }
 
-        Guard guard(m_mutex);
+    Guard guard(m_mutex);
 
-	{
-          // Store current robot state
-	  hrp::dvector qorg(m_robot->numJoints());
-	  for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-	    qorg[i] = m_robot->joint(i)->q;
+    {
+      // Store current robot state
+      hrp::dvector qorg(m_robot->numJoints());
+      for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
+        qorg[i] = m_robot->joint(i)->q;
+      }
+      // Get target parameters mainly from SequencePlayer
+      getTargetParameters();
+      // Calculate act/ref absolute force/moment
+      calcForceMoment();
+      // back to impedance robot model (only for controlled joint)
+      for ( std::map<std::string, ImpedanceParam>::iterator it = m_impedance_param.begin(); it != m_impedance_param.end(); it++ ) {
+        ImpedanceParam& param = it->second;
+        if (param.is_active) {
+          for ( unsigned int j = 0; j < param.manip->numJoints(); j++ ){
+            int i = param.manip->joint(j)->jointId;
+            m_robot->joint(i)->q = qorg[i];
           }
-          // Get target parameters mainly from SequencePlayer
-          getTargetParameters();
-          // Calculate act/ref absolute force/moment
-          calcForceMoment();
-          // back to impedance robot model (only for controlled joint)
-	  for ( std::map<std::string, ImpedanceParam>::iterator it = m_impedance_param.begin(); it != m_impedance_param.end(); it++ ) {
-            ImpedanceParam& param = it->second;
-            if (param.is_active) {
-                for ( unsigned int j = 0; j < param.manip->numJoints(); j++ ){
-                    int i = param.manip->joint(j)->jointId;
-                    m_robot->joint(i)->q = qorg[i];
-                }
-            }
-	  }
-	  m_robot->calcForwardKinematics();
-
-	}
-
-        // Check if all limb is non-is_active mode.
-        bool is_active = false;
-        for ( std::map<std::string, ImpedanceParam>::iterator it = m_impedance_param.begin(); it != m_impedance_param.end(); it++ ) {
-            is_active = is_active || it->second.is_active;
         }
-        if ( !is_active ) {
-          for ( unsigned int i = 0; i < m_qRef.data.length(); i++ ){
-            m_q.data[i] = m_qRef.data[i];
-            m_robot->joint(i)->q = m_qRef.data[i];
-          }
-          m_qOut.write();
-          return RTC_OK;
-        }
+      }
+      m_robot->calcForwardKinematics();
 
-        // Caculate ImpedanceControl and solve IK
-        calcImpedanceControl();
-
-        // Output
-        if ( m_q.data.length() != 0 ) { // initialized
-            for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-                m_q.data[i] = m_robot->joint(i)->q;
-            }
-            m_qOut.write();
-            if ( DEBUGP ) {
-                std::cerr << "[" << m_profile.instance_name << "] q = ";
-                for ( unsigned int i = 0; i < m_q.data.length(); i++ ){
-                    std::cerr << " " << m_q.data[i];
-                }
-                std::cerr << std::endl;
-            }
-        }
-    } else {
-        if ( DEBUGP || loop % 100 == 0 ) {
-            std::cerr << "ImpedanceController is not working..." << std::endl;
-            std::cerr << "         m_qRef " << m_qRef.data.length() << std::endl;
-            std::cerr << "     m_qCurrent " << m_qCurrent.data.length() << std::endl;
-        }
     }
-    return RTC::RTC_OK;
+
+    // Check if all limb is non-is_active mode.
+    bool is_active = false;
+    for ( std::map<std::string, ImpedanceParam>::iterator it = m_impedance_param.begin(); it != m_impedance_param.end(); it++ ) {
+      is_active = is_active || it->second.is_active;
+    }
+    if ( !is_active ) {
+      for ( unsigned int i = 0; i < m_qRef.data.length(); i++ ){
+        m_q.data[i] = m_qRef.data[i];
+        m_robot->joint(i)->q = m_qRef.data[i];
+      }
+      m_qOut.write();
+      return RTC_OK;
+    }
+
+    // Caculate ImpedanceControl and solve IK
+    calcImpedanceControl();
+
+    // Output
+    if ( m_q.data.length() != 0 ) { // initialized
+      for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
+        m_q.data[i] = m_robot->joint(i)->q;
+      }
+      m_qOut.write();
+      if ( DEBUGP ) {
+        std::cerr << "[" << m_profile.instance_name << "] q = ";
+        for ( unsigned int i = 0; i < m_q.data.length(); i++ ){
+          std::cerr << " " << m_q.data[i];
+        }
+        std::cerr << std::endl;
+      }
+    }
+    m_velTargetPosR.data.x = m_impedance_param["rarm"].vel_target_pos(0);
+    m_velTargetPosR.data.y = m_impedance_param["rarm"].vel_target_pos(1);
+    m_velTargetPosR.data.z = m_impedance_param["rarm"].vel_target_pos(2);
+    m_velTargetPosROut.write();
+    m_velTargetPosL.data.x = m_impedance_param["larm"].vel_target_pos(0);
+    m_velTargetPosL.data.y = m_impedance_param["larm"].vel_target_pos(1);
+    m_velTargetPosL.data.z = m_impedance_param["larm"].vel_target_pos(2);
+    m_velTargetPosLOut.write();
+  } else {
+    if ( DEBUGP || loop % 100 == 0 ) {
+      std::cerr << "ImpedanceController is not working..." << std::endl;
+      std::cerr << "         m_qRef " << m_qRef.data.length() << std::endl;
+      std::cerr << "     m_qCurrent " << m_qCurrent.data.length() << std::endl;
+    }
+  }
+  return RTC::RTC_OK;
 }
 
 /*
@@ -657,7 +669,8 @@ void ImpedanceController::calcImpedanceControl ()
                     force_diff = (ex_force.getCurrentValue() * 0.5 - in_force.getCurrentValue() * 0.05);
                 }
                 hrp::Vector3 moment_diff = abs_moments[it->second.sensor_name] - abs_ref_moments[it->second.sensor_name];
-                param.calcTargetVelocity(vel_p, vel_r, eeR, force_diff, moment_diff, m_dt,
+                param.vel_target_pos = hrp::Vector3::Zero();
+                param.calcTargetVelocity(vel_p, vel_r, param.vel_target_pos, eeR, force_diff, moment_diff, m_dt,
                                          DEBUGP, std::string(m_profile.instance_name), it->first);
 
                 // Solve ik

@@ -178,6 +178,10 @@ class AutoBalancer
   InPort<OpenHRP::TimedBoxPoses> m_boxPoseIn;
   OpenHRP::TimedPoint m_lookAtPoint;
   InPort<OpenHRP::TimedPoint> m_lookAtPointIn;
+  OpenHRP::TimedPoint m_velTargetPosR;
+  InPort<OpenHRP::TimedPoint> m_velTargetPosRIn;
+  OpenHRP::TimedPoint m_velTargetPosL;
+  InPort<OpenHRP::TimedPoint> m_velTargetPosLIn;
 
   // for debug
   TimedPoint3D m_cog;
@@ -399,6 +403,9 @@ class AutoBalancer
   bool prev_roll_state, prev_pitch_state;
   bool is_emergency_step_mode, is_emergency_touch_wall_mode, is_emergency_stopping, is_touch_wall_motion_solved, use_collision_avoidance, is_natural_walk, is_stop_early_foot;
   double cog_z_constraint, touch_wall_retrieve_time, arm_swing_deg;
+
+  hrp::Vector3 impedance_diff_r;
+  hrp::Vector3 impedance_diff_l;
 };
 
 

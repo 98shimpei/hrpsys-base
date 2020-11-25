@@ -77,6 +77,8 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_steppableRegionIn("steppableRegion", m_steppableRegion),
       m_boxPoseIn("boxPose", m_boxPose),
       m_lookAtPointIn("lookAtPoint", m_lookAtPoint),
+      m_velTargetPosRIn("velTargetPosR", m_velTargetPosR),
+      m_velTargetPosLIn("velTargetPosL", m_velTargetPosL),
       m_qOut("q", m_qRef),
       m_qAbcOut("qAbc", m_qAbc),
       m_tauOut("tau", m_tau),
@@ -116,7 +118,10 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       // </rtc-template>
       gait_type(BIPED),
       m_robot(hrp::BodyPtr()),
-      m_debugLevel(0)
+      m_debugLevel(0),
+      impedance_diff_r(hrp::Vector3::Zero()),
+      impedance_diff_l(hrp::Vector3::Zero())
+
 {
     m_service0.autobalancer(this);
 }
@@ -151,6 +156,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addInPort("steppableRegion", m_steppableRegionIn);
     addInPort("boxPose", m_boxPoseIn);
     addInPort("lookAtPoint", m_lookAtPointIn);
+    addInPort("velTargetPosR", m_velTargetPosRIn);
+    addInPort("velTargetPosL", m_velTargetPosLIn);
 
     // Set OutPort buffer
     addOutPort("q", m_qOut);
@@ -793,6 +800,15 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         }
     }
 
+    if (m_velTargetPosRIn.isNew()) {
+      m_velTargetPosRIn.read();
+      impedance_diff_r = -hrp::Vector3(m_velTargetPosR.data.x, m_velTargetPosR.data.y, m_velTargetPosR.data.z);
+    }
+    if (m_velTargetPosLIn.isNew()) {
+      m_velTargetPosLIn.read();
+      impedance_diff_l = -hrp::Vector3(m_velTargetPosL.data.x, m_velTargetPosL.data.y, m_velTargetPosL.data.z);
+    }
+
     //カメラからboxPoseを受け取る
     if (m_lookAtPointIn.isNew()) {
       m_lookAtPointIn.read();
@@ -814,8 +830,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       st->box_update_flag = true;
       st->box_update_time = m_dt * st->box_update_time_count;
       st->box_update_time_count = 0;
-      std::cerr << "update_camera" << std::endl;
-      std::cerr << st->box_update_time << std::endl;
 
       // get keys
       std::list<int> keys;
@@ -1383,12 +1397,12 @@ void AutoBalancer::getTargetParameters()
     }
 
     // Calculate other parameters
+    updateWalkingVelocityFromHandError(tmp_fix_coords);
     updateTargetCoordsForHandFixMode (tmp_fix_coords);
     rotateRefForcesForFixCoords (tmp_fix_coords);
     // TODO : see explanation in this function
     calculateOutputRefForces ();
     // TODO : see explanation in this function
-    updateWalkingVelocityFromHandError(tmp_fix_coords);
     calcReferenceJointAnglesForIK();
 
     // Calculate ZMP, COG, and sbp targets
@@ -1720,7 +1734,6 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     }
     
     //box_balancer
-
     //手のdiffを加える前のm_robot
     if (st->box_control_mode /*&& st->box_weight > 1.0*/) {
         //hand force
@@ -1731,7 +1744,6 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         if (st->box_rot_camera_offset.find(st->top_box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(st->top_box_id) != st->box_rot_camera.end() &&
             st->box_rot_camera_offset.find(st->base_box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()){
           if (st->box_update_flag) {
-            std::cerr << "box_balancer" << std::endl;
             st->box_update_flag = false;
             //calc dest rot
             hrp::Vector3 box_offset_camera = st->box_rot_camera[st->base_box_id] * st->box_local_pos + st->box_pos_camera[st->base_box_id];
@@ -1838,8 +1850,25 @@ void AutoBalancer::updateWalkingVelocityFromHandError (coordinates& tmp_fix_coor
 {
     // TODO : check frame and robot state for this calculation
     if ( gg_is_walking && gg->get_lcg_count() == gg->get_overwrite_check_timing()+2 ) {
-        hrp::Vector3 vel_htc(calc_vel_from_hand_error(tmp_fix_coords));
-        std::cerr << vel_htc(0) << " " << vel_htc(1) << " " << vel_htc(2);
+        hrp::Vector3 vel_htc = hrp::Vector3::Zero();
+        //hrp::Vector3 vel_htc(calc_vel_from_hand_error(tmp_fix_coords));
+        if (graspless_manip_mode) {
+          hrp::Vector3 dp = 0.5 * (impedance_diff_l + impedance_diff_r);
+          hrp::Vector3 imp_diff = impedance_diff_l - impedance_diff_r;
+          hrp::Vector3 act_y = ikp["larm"].target_p0 - ikp["rarm"].target_p0;
+          hrp::Vector3 ref_y = act_y - imp_diff;
+          act_y(2) = 0;
+          ref_y(2) = 0;
+          act_y.normalize();
+          ref_y.normalize();
+          hrp::Vector3 dr = hrp::Vector3(0,0,(hrp::Vector3(ref_y.cross(act_y))(2) > 0 ? 1.0 : -1.0) * std::acos(ref_y.dot(act_y)));
+          
+          vel_htc = hrp::Vector3(
+            graspless_manip_p_gain[0] * dp(0)/gg->get_default_step_time(),
+            graspless_manip_p_gain[1] * dp(1)/gg->get_default_step_time(),
+            graspless_manip_p_gain[2] * rad2deg(dr(2))/gg->get_default_step_time());
+          std::cerr << vel_htc(0) << " " << vel_htc(1) << " " << vel_htc(2) << std::endl;
+        }
         gg->set_offset_velocity_param(vel_htc(0), vel_htc(1) ,vel_htc(2));
     }//  else {
     //     if ( gg_is_walking && gg->get_lcg_count() == static_cast<size_t>(gg->get_default_step_time()/(2*m_dt))-1) {
@@ -4043,7 +4072,8 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
 
 hrp::Vector3 AutoBalancer::calc_vel_from_hand_error (const coordinates& tmp_fix_coords)
 {
-  if (graspless_manip_mode) {
+  //if (graspless_manip_mode) {
+  if (true) {
     hrp::Vector3 dp,dr;
     coordinates ref_hand_coords(gg->get_dst_foot_midcoords()), act_hand_coords;
     ref_hand_coords.transform(graspless_manip_reference_trans_coords); // desired arm coords
@@ -4073,6 +4103,9 @@ hrp::Vector3 AutoBalancer::calc_vel_from_hand_error (const coordinates& tmp_fix_
     //alias(dp) = foot_mt * dp;
     hrp::Vector3 dp2 = foot_mt * dp;
     //alias(dr) = foot_mt * dr;
+    std::cerr << std::endl;
+    std::cerr << "dp,dr " << dp2(0) << " " << dp2(1) << " " << dr(2) << std::endl;
+    std::cerr << std::endl;
     return hrp::Vector3(graspless_manip_p_gain[0] * dp2(0)/gg->get_default_step_time(),
                         graspless_manip_p_gain[1] * dp2(1)/gg->get_default_step_time(),
                         graspless_manip_p_gain[2] * rad2deg(dr(2))/gg->get_default_step_time());

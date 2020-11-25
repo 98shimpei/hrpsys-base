@@ -414,6 +414,8 @@ class HrpsysConfigurator(object):
             connectPorts(self.abc.port("accRef"), self.kf.port("accRef"))
             connectPorts(self.rh.port("q"), self.abc.port("qCurrent"))
             connectPorts(self.seq.port("qRef"), self.abc.port("qRefSeq"))
+            connectPorts(self.ic.port("velTargetPosR"), self.abc.port("velTargetPosR"))
+            connectPorts(self.ic.port("velTargetPosL"), self.abc.port("velTargetPosL"))
             if self.es:
                 connectPorts(self.abc.port("emergencySignal"), self.es.port("emergencySignal"))
                 connectPorts(self.abc.port("emergencyFallMotion"), self.es.port("emergencyFallMotion"))

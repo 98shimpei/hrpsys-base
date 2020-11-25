@@ -3,6 +3,7 @@
 #define IMPEDANCESERVICESVC_IMPL_H
 
 #include "hrpsys/idl/ImpedanceControllerService.hh"
+#include "hrpsys/idl/HRPDataTypes.hh"
 
 using namespace OpenHRP;
 

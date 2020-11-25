@@ -36,7 +36,8 @@ protected:
             imp.current_r1 = imp.output_r1;
             hrp::Vector3 vel_p, vel_r;
             hrp::Matrix33 eeR = hrp::Matrix33::Identity();
-            imp.calcTargetVelocity(vel_p, vel_r,
+            hrp::Vector3 vel_target_pos = hrp::Vector3::Zero();
+            imp.calcTargetVelocity(vel_p, vel_r, vel_target_pos,
                                    eeR, force_diff_vec[i], moment_diff_vec[i], dt);
             hrp::Vector3 output_rot, target_rot;
             rats::difference_rotation(output_rot, hrp::Matrix33::Identity(), imp.output_r1);

@@ -130,6 +130,10 @@ class ImpedanceController
   // <rtc-template block="outport_declare">
   TimedDoubleSeq m_q;
   OutPort<TimedDoubleSeq> m_qOut;
+  TimedPoint m_velTargetPosR;
+  OutPort<TimedPoint> m_velTargetPosROut;
+  TimedPoint m_velTargetPosL;
+  OutPort<TimedPoint> m_velTargetPosLOut;
   
   // </rtc-template>
 
@@ -160,11 +164,12 @@ class ImpedanceController
     hrp::dvector transition_joint_q;
     hrp::JointPathExPtr manip;
     bool is_active;
+    hrp::Vector3 vel_target_pos;
 
     ImpedanceParam ()
       : ImpedanceOutputGenerator(),
         ref_force(hrp::Vector3::Zero()), ref_moment(hrp::Vector3::Zero()),
-        sr_gain(1.0), avoid_gain(0.001), reference_gain(0.01), manipulability_limit(0.1), transition_count(0), is_active(false)
+        sr_gain(1.0), avoid_gain(0.001), reference_gain(0.01), manipulability_limit(0.1), transition_count(0), is_active(false), vel_target_pos(hrp::Vector3::Zero())
     {};
   };
   struct ee_trans {
