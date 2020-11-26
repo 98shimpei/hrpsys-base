@@ -1868,6 +1868,12 @@ void AutoBalancer::updateWalkingVelocityFromHandError (coordinates& tmp_fix_coor
             graspless_manip_p_gain[0] * dp(0)/gg->get_default_step_time(),
             graspless_manip_p_gain[1] * dp(1)/gg->get_default_step_time(),
             graspless_manip_p_gain[2] * rad2deg(dr(2))/gg->get_default_step_time());
+          if (vel_htc(0) > 0.08) vel_htc(0) = 0.08;
+          else if (vel_htc(0) < -0.08) vel_htc(0) = -0.08;
+          if (vel_htc(1) > 0.08) vel_htc(1) = 0.08;
+          else if (vel_htc(1) < -0.08) vel_htc(1) = -0.08;
+          if (vel_htc(2) > 5.0) vel_htc(2) = 5.0;
+          else if (vel_htc(2) < -5.0) vel_htc(2) = -5.0;
           std::cerr << vel_htc(0) << " " << vel_htc(1) << " " << vel_htc(2) << std::endl;
         }
         gg->set_offset_velocity_param(vel_htc(0), vel_htc(1) ,vel_htc(2));
