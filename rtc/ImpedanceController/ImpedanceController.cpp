@@ -664,9 +664,9 @@ void ImpedanceController::calcImpedanceControl ()
                 in_force.passFilter(abs_forces["lhsensor"] - abs_forces["rhsensor"] - abs_ref_forces["lhsensor"] + abs_ref_forces["rhsensor"]);
                 hrp::Vector3 force_diff = hrp::Vector3::Zero();
                 if (it->second.sensor_name == "lhsensor") {
-                    force_diff = (ex_force.getCurrentValue() * 0.5 + in_force.getCurrentValue() * 0.05);
+                    force_diff = (ex_force.getCurrentValue() * 0.5 + in_force.getCurrentValue() * 0.05).array() * hrp::Vector3d(1.0, 1.0, 0.1).array();
                 } else if (it->second.sensor_name == "rhsensor") {
-                    force_diff = (ex_force.getCurrentValue() * 0.5 - in_force.getCurrentValue() * 0.05);
+                    force_diff = (ex_force.getCurrentValue() * 0.5 - in_force.getCurrentValue() * 0.05).array() * hrp::Vector3d(1.0, 1.0, 0.1).array();
                 }
                 hrp::Vector3 moment_diff = abs_moments[it->second.sensor_name] - abs_ref_moments[it->second.sensor_name];
                 param.vel_target_pos = hrp::Vector3::Zero();
