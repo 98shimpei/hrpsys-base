@@ -810,6 +810,13 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       impedance_diff_l = -hrp::Vector3(m_velTargetPosL.data.x, m_velTargetPosL.data.y, m_velTargetPosL.data.z);
     }
 
+    hrp::VisionSensor* sensorhoge;
+    sensorhoge = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
+    Eigen::Quaternion<double> tmp;
+    tmp = sensorhoge->localR;
+    std::cerr << sensorhoge->localPos(0) << " " << sensorhoge->localPos(1) << " " << sensorhoge->localPos(2) << std::endl;
+    std::cout << tmp.x() << " " << tmp.y() << " " << tmp.z() << " " << tmp.w() << std::endl;
+
     //カメラからboxPoseを受け取る
     if (m_lookAtPointIn.isNew()) {
       m_lookAtPointIn.read();
