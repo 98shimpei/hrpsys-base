@@ -1632,7 +1632,6 @@ void AutoBalancer::updateHeadPose ()
   }
   //headの角度制限確認。相互に影響する
   {
-    /*
     if (std::abs(m_robot->joint(15)->q) <= deg2rad(15.01)) {
       vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(40) - tmp16);
     } else if (std::abs(m_robot->joint(15)->q) <= deg2rad(25.01)) {
@@ -1641,8 +1640,7 @@ void AutoBalancer::updateHeadPose ()
       vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(15) - tmp16);
     } else {
       vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(6.99) - tmp16);
-    }*/
-    vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(0) - tmp16);
+    }
     if (m_robot->joint(16)->q <= deg2rad(7)) {
       vlimit(st->head_diff[0], deg2rad(-60) - tmp15, deg2rad(60) - tmp15);
     } else if (m_robot->joint(16)->q <= deg2rad(15.01)) {
