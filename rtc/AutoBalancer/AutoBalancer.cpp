@@ -876,12 +876,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         tmp_pos = world_pos + world_rot * tmp_pos;
         tmp_rot = world_rot * tmp_rot;
 
-        std::cerr << "id: " << id << " pos: "
-          << tmp_pos(0) << " "
-          << tmp_pos(1) << " "
-          << tmp_pos(2)
-          << std::endl;
-
         if (st->box_pos_camera.find(id) == st->box_pos_camera.end() || (tmp_pos - st->box_pos_camera[id]).norm() < 0.5) {//外れ値除去
           st->box_pos_camera[id] = tmp_pos;
           st->box_rot_camera[id] = tmp_rot;
@@ -1781,7 +1775,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
          && it->first.find("arm") != std::string::npos ) {
-            //it->second.target_r0 = st->hand_rot * it->second.target_r0;
+            it->second.target_r0 = st->hand_rot * it->second.target_r0;
             it->second.target_p0 += (st->hand_rot * (it->second.target_p0 - st->box_rotation_center->getCurrentValue()) - (it->second.target_p0 - st->box_rotation_center->getCurrentValue()));
         }
     }
