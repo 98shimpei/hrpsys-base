@@ -381,6 +381,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
             tp.has_toe_joint = false;
         }
         tp.target_link = m_robot->link(ee_target);
+        tp.hand_pos = hrp::Vector3::Zero();
         ikp.insert(std::pair<std::string, ABCIKparam>(ee_name , tp));
         ee_vec.push_back(ee_name);
         std::cerr << "[" << m_profile.instance_name << "] End Effector [" << ee_name << "]" << std::endl;
@@ -1757,12 +1758,20 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             st->hand_diff_d = 0.5 * st->hand_diff_d + 0.5 * (tmp - st->hand_diff)/st->box_update_time;
             st->hand_diff = tmp;
           }
-          st->hand_rot = Eigen::AngleAxisd(-(box_gain_function(st->hand_diff[0]) * st->box_balancer_rot_gain_p + st->hand_diff_d[0] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitY()) * Eigen::AngleAxisd((box_gain_function(st->hand_diff[1]) * st->box_balancer_rot_gain_p + st->hand_diff_d[1] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitX()) * st->hand_rot; 
+          Eigen::AngleAxisd hand_omega;
+          hand_omega = Eigen::AngleAxisd(-(box_gain_function(st->hand_diff[0]) * st->box_balancer_rot_gain_p + st->hand_diff_d[0] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitY()) * Eigen::AngleAxisd((box_gain_function(st->hand_diff[1]) * st->box_balancer_rot_gain_p + st->hand_diff_d[1] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitX());
+          st->hand_rot = hand_omega * st->hand_rot;
+          ikp["rarm"].hand_pos = 0.9995 * ikp["rarm"].hand_pos;
+          ikp["larm"].hand_pos = 0.9995 * ikp["larm"].hand_pos;
+          ikp["rarm"].hand_pos += (hand_omega * (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()));
+          ikp["larm"].hand_pos += (hand_omega * (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()));
         }
 
         if (st->hand_rot.angle() > 0.5) st->hand_rot.angle() = 0.5;//0.5
     } else if (!st->box_control_mode) {
         st->hand_rot.angle() = 0.997 * st->hand_rot.angle();
+        ikp["rarm"].hand_pos = 0.997 * ikp["rarm"].hand_pos;
+        ikp["larm"].hand_pos = 0.997 * ikp["larm"].hand_pos;
     }
     
     if (st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()) {
@@ -1776,7 +1785,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
          && it->first.find("arm") != std::string::npos ) {
             it->second.target_r0 = st->hand_rot * it->second.target_r0;
-            it->second.target_p0 += (st->hand_rot * (it->second.target_p0 - st->box_rotation_center->getCurrentValue()) - (it->second.target_p0 - st->box_rotation_center->getCurrentValue()));
+            it->second.target_p0 += it->second.hand_pos;
         }
     }
 
