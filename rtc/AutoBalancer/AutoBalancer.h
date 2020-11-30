@@ -406,6 +406,9 @@ class AutoBalancer
 
   hrp::Vector3 impedance_diff_r;
   hrp::Vector3 impedance_diff_l;
+
+  hrp::Vector3 RS_L515_localPos;
+  hrp::Matrix33 RS_L515_localR;
 };
 
 

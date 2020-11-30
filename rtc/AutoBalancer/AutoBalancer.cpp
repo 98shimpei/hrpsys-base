@@ -120,7 +120,9 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_robot(hrp::BodyPtr()),
       m_debugLevel(0),
       impedance_diff_r(hrp::Vector3::Zero()),
-      impedance_diff_l(hrp::Vector3::Zero())
+      impedance_diff_l(hrp::Vector3::Zero()),
+      RS_L515_localPos(hrp::Vector3(0.162984, 0.000584947, -0.00658613)),
+      RS_L515_localR(hrp::Matrix33(Eigen::Quaternion<double>(0.603916, 0.361635, -0.362313, -0.610929)))
 
 {
     m_service0.autobalancer(this);
@@ -810,13 +812,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       impedance_diff_l = -hrp::Vector3(m_velTargetPosL.data.x, m_velTargetPosL.data.y, m_velTargetPosL.data.z);
     }
 
-    hrp::VisionSensor* sensorhoge;
-    sensorhoge = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
-    Eigen::Quaternion<double> tmp;
-    tmp = sensorhoge->localR;
-    std::cerr << sensorhoge->localPos(0) << " " << sensorhoge->localPos(1) << " " << sensorhoge->localPos(2) << std::endl;
-    std::cout << tmp.x() << " " << tmp.y() << " " << tmp.z() << " " << tmp.w() << std::endl;
-
     //カメラからboxPoseを受け取る
     if (m_lookAtPointIn.isNew()) {
       m_lookAtPointIn.read();
@@ -876,10 +871,16 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         m_robot->calcForwardKinematics();
         sensor = m_robot->sensor<hrp::VisionSensor>("HEAD_LEFT_CAMERA");
 
-        hrp::Vector3 world_pos = sensor->link->R * sensor->localPos + sensor->link->p;
-        hrp::Matrix33 world_rot = sensor->link->R * sensor->localR * Eigen::AngleAxisd(deg2rad(180), Eigen::Vector3d::UnitX());
+        hrp::Vector3 world_pos = sensor->link->R * RS_L515_localPos + sensor->link->p;
+        hrp::Matrix33 world_rot = sensor->link->R * RS_L515_localR * Eigen::AngleAxisd(deg2rad(180), Eigen::Vector3d::UnitX());
         tmp_pos = world_pos + world_rot * tmp_pos;
         tmp_rot = world_rot * tmp_rot;
+
+        std::cerr << "id: " << id << " pos: "
+          << tmp_pos(0) << " "
+          << tmp_pos(1) << " "
+          << tmp_pos(2)
+          << std::endl;
 
         if (st->box_pos_camera.find(id) == st->box_pos_camera.end() || (tmp_pos - st->box_pos_camera[id]).norm() < 0.5) {//外れ値除去
           st->box_pos_camera[id] = tmp_pos;
@@ -1621,8 +1622,8 @@ void AutoBalancer::updateHeadPose ()
     //head_left_optical_frameの座標系で見るとx(横)方向は動きと座標が逆になる
     double head_diff_d0 = st->look_at_point(0) / st->look_at_point(2);
     double head_diff_d1 = st->look_at_point(1) / st->look_at_point(2);
-    vlimit(head_diff_d0, -0.17, 0.17);
-    vlimit(head_diff_d1, -0.17, 0.17);
+    vlimit(head_diff_d0, -0.09, 0.09);
+    vlimit(head_diff_d1, -0.09, 0.09);
     st->head_diff[0] -= st->look_at_box_gain * head_diff_d0;
     st->head_diff[1] += st->look_at_box_gain * head_diff_d1;
   } else {
@@ -1632,25 +1633,16 @@ void AutoBalancer::updateHeadPose ()
   }
   //headの角度制限確認。相互に影響する
   {
-    /*
-    if (std::abs(m_robot->joint(15)->q) <= deg2rad(15.01)) {
-      vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(40) - tmp16);
-    } else if (std::abs(m_robot->joint(15)->q) <= deg2rad(25.01)) {
-      vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(30) - tmp16);
-    } else if (std::abs(m_robot->joint(15)->q) <= deg2rad(30.01)) {
-      vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(15) - tmp16);
+    
+    if (std::abs(m_robot->joint(15)->q) <= deg2rad(10.01)) {
+      vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(20) - tmp16);
     } else {
-      vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(6.99) - tmp16);
-    }*/
-    vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(0) - tmp16);
-    if (m_robot->joint(16)->q <= deg2rad(7)) {
-      vlimit(st->head_diff[0], deg2rad(-60) - tmp15, deg2rad(60) - tmp15);
-    } else if (m_robot->joint(16)->q <= deg2rad(15.01)) {
-      vlimit(st->head_diff[0], deg2rad(-30) - tmp15, deg2rad(30) - tmp15);
-    } else if (m_robot->joint(16)->q <= deg2rad(30.01)) {
-      vlimit(st->head_diff[0], deg2rad(-25) - tmp15, deg2rad(25) - tmp15);
+      vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(0) - tmp16);
+    }
+    if (m_robot->joint(16)->q <= deg2rad(0.01)) {
+      vlimit(st->head_diff[0], deg2rad(-50) - tmp15, deg2rad(50) - tmp15);
     } else {
-      vlimit(st->head_diff[0], deg2rad(-15) - tmp15, deg2rad(15) - tmp15);
+      vlimit(st->head_diff[0], deg2rad(-10) - tmp15, deg2rad(10) - tmp15);
     }
   }
   m_robot->joint(15)->q = tmp15 + st->head_diff[0];
@@ -1789,7 +1781,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
          && it->first.find("arm") != std::string::npos ) {
-            it->second.target_r0 = st->hand_rot * it->second.target_r0;
+            //it->second.target_r0 = st->hand_rot * it->second.target_r0;
             it->second.target_p0 += (st->hand_rot * (it->second.target_p0 - st->box_rotation_center->getCurrentValue()) - (it->second.target_p0 - st->box_rotation_center->getCurrentValue()));
         }
     }
