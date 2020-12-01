@@ -130,6 +130,7 @@ class AutoBalancer
   void setBoxWeightOffset(void);
   void startLookAtBox(double gain);
   void stopLookAtBox(void);
+  void jampBox(double p, double a);
 
 
  protected:
@@ -409,6 +410,9 @@ class AutoBalancer
 
   hrp::Vector3 RS_L515_localPos;
   hrp::Matrix33 RS_L515_localR;
+  double jamp_box_angle;
+  double jamp_box_amp;
+  double jamp_box_period;
 };
 
 
