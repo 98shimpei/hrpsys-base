@@ -1620,8 +1620,8 @@ void AutoBalancer::updateHeadPose ()
     //head_left_optical_frameの座標系で見るとx(横)方向は動きと座標が逆になる
     double head_diff_d0 = st->look_at_point(0) / st->look_at_point(2);
     double head_diff_d1 = st->look_at_point(1) / st->look_at_point(2);
-    vlimit(head_diff_d0, -0.09, 0.09);
-    vlimit(head_diff_d1, -0.09, 0.09);
+    vlimit(head_diff_d0, -0.0011 / st->look_at_box_gain, 0.0011 / st->look_at_box_gain);
+    vlimit(head_diff_d1, -0.0011 / st->look_at_box_gain, 0.0011 / st->look_at_box_gain);
     st->head_diff[0] -= st->look_at_box_gain * head_diff_d0;
     st->head_diff[1] += st->look_at_box_gain * head_diff_d1;
   } else {
@@ -1630,19 +1630,23 @@ void AutoBalancer::updateHeadPose ()
     st->head_diff[1] *= 0.9997;//(1 - st->look_at_box_gain);
   }
   //headの角度制限確認。相互に影響する
-  /*{
+  {
     
-    if (std::abs(m_robot->joint(15)->q) <= deg2rad(10.01)) {
-      vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(20) - tmp16);
+    if (std::abs(m_robot->joint(15)->q) <= deg2rad(16.01)) {
+      vlimit(st->head_diff[1], deg2rad(-45) - tmp16, deg2rad(30) - tmp16);
+    } else if (std::abs(m_robot->joint(15)->q) <= deg2rad(37.01)) {
+      vlimit(st->head_diff[1], deg2rad(-45) - tmp16, deg2rad(20) - tmp16);
     } else {
-      vlimit(st->head_diff[1], deg2rad(-18) - tmp16, deg2rad(0) - tmp16);
+      vlimit(st->head_diff[1], deg2rad(-45) - tmp16, deg2rad(0) - tmp16);
     }
     if (m_robot->joint(16)->q <= deg2rad(0.01)) {
-      vlimit(st->head_diff[0], deg2rad(-50) - tmp15, deg2rad(50) - tmp15);
+      vlimit(st->head_diff[0], deg2rad(-45) - tmp15, deg2rad(45) - tmp15);
+    } else if (m_robot->joint(16)->q <= deg2rad(20.01)) {
+      vlimit(st->head_diff[0], deg2rad(-37) - tmp15, deg2rad(37) - tmp15);
     } else {
-      vlimit(st->head_diff[0], deg2rad(-10) - tmp15, deg2rad(10) - tmp15);
+      vlimit(st->head_diff[0], deg2rad(-16) - tmp15, deg2rad(16) - tmp15);
     }
-  }*/
+  }
   m_robot->joint(15)->q = tmp15 + st->head_diff[0];
   m_robot->joint(16)->q = tmp16 + st->head_diff[1];
 }
@@ -1768,10 +1772,10 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
           ikp["larm"].hand_pos = 0.9995 * ikp["larm"].hand_pos;
           ikp["rarm"].hand_pos += (hand_omega * (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()));
           ikp["larm"].hand_pos += (hand_omega * (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()));
-          ikp["rarm"].hand_pos(0) = 0;
-          ikp["rarm"].hand_pos(1) = 0;
-          ikp["larm"].hand_pos(0) = 0;
-          ikp["larm"].hand_pos(1) = 0;
+          //ikp["rarm"].hand_pos(0) = 0;
+          //ikp["rarm"].hand_pos(1) = 0;
+          //ikp["larm"].hand_pos(0) = 0;
+          //ikp["larm"].hand_pos(1) = 0;
         }
 
         if (st->hand_rot.angle() > 0.5) st->hand_rot.angle() = 0.5;//0.5
@@ -1791,7 +1795,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
          && it->first.find("arm") != std::string::npos ) {
-            //it->second.target_r0 = st->hand_rot * it->second.target_r0;
+            it->second.target_r0 = st->hand_rot * it->second.target_r0;
             it->second.target_p0 += it->second.hand_pos;
         }
     }
