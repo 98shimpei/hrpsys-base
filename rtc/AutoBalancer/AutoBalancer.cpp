@@ -1812,7 +1812,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     }
     
     //jamp_box
-    if (jamp_box_angle > 0) jamp_box_angle -= M_PI * m_dt / jamp_box_period;
+    if (jamp_box_angle > 0) jamp_box_angle -= 2 * M_PI * m_dt / jamp_box_period;
     if (jamp_box_angle < 0) jamp_box_angle = 0;
     ikp["rarm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * (1.0 - std::cos(jamp_box_angle)));
     ikp["larm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * (1.0 - std::cos(jamp_box_angle)));
