@@ -121,8 +121,8 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_debugLevel(0),
       impedance_diff_r(hrp::Vector3::Zero()),
       impedance_diff_l(hrp::Vector3::Zero()),
-      RS_L515_localPos(hrp::Vector3(0.162984, 0.000584947, -0.00658613)),
-      RS_L515_localR(hrp::Matrix33(Eigen::Quaternion<double>(0.603916, 0.361635, -0.362313, -0.610929))),
+      RS_L515_localPos(hrp::Vector3(0.161374, 0.000584947, -0.0360821)),
+      RS_L515_localR(hrp::Matrix33(Eigen::Quaternion<double>(0.646041, 0.278298, -0.280387, -0.652905))),
       jamp_box_angle(0),
       jamp_box_period(0),
       jamp_box_amp(0)
