@@ -123,7 +123,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       impedance_diff_l(hrp::Vector3::Zero()),
       RS_L515_localPos(hrp::Vector3(0.161374, 0.000584947, -0.0360821)),
       RS_L515_localR(hrp::Matrix33(Eigen::Quaternion<double>(0.646041, 0.278298, -0.280387, -0.652905))),
-      jamp_box_angle(0),
+      jamp_box_angle(0.0),
       jamp_box_period(0),
       jamp_box_amp(0)
 
@@ -1816,10 +1816,10 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     }
     
     //jamp_box
-    if (jamp_box_angle > 0) jamp_box_angle -= 2 * M_PI * m_dt / jamp_box_period;
+    if (jamp_box_angle > 0) jamp_box_angle -= 2.0 * M_PI * m_dt / jamp_box_period;
     if (jamp_box_angle < 0) jamp_box_angle = 0;
-    ikp["rarm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * (1.0 - std::cos(jamp_box_angle)));
-    ikp["larm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * (1.0 - std::cos(jamp_box_angle)));
+    ikp["rarm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * 0.5 * (1.0 - std::cos(jamp_box_angle)));
+    ikp["larm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * 0.5 * (1.0 - std::cos(jamp_box_angle)));
 };
 
 void AutoBalancer::calculateOutputRefForces ()
@@ -2541,7 +2541,7 @@ void AutoBalancer::setBoxWeightOffset(void)
 }
 
 void AutoBalancer::jampBox(double p, double a) {
-  jamp_box_angle = M_PI;
+  jamp_box_angle = 2.0 * M_PI;
   jamp_box_amp = a;
   jamp_box_period = p;
 }
