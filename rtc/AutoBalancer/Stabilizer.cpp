@@ -389,6 +389,8 @@ void Stabilizer::getTargetParameters ()
     target_ee_R[i] = target->R * stikp[i].localR;
     ref_force[i] = hrp::Vector3(ref_wrenches[i][0], ref_wrenches[i][1], ref_wrenches[i][2]);
     ref_moment[i] = hrp::Vector3(ref_wrenches[i][3], ref_wrenches[i][4], ref_wrenches[i][5]);
+    stikp[i].ref_force = ref_force[i];
+    stikp[i].ref_moment = ref_moment[i];
     ref_total_force += ref_force[i];
     // Force/moment diff control
     ref_total_moment += (target_ee_p[i]-ref_zmp).cross(ref_force[i]);
@@ -640,7 +642,7 @@ void Stabilizer::getActualParametersForST ()
       }
 
       // truncate ZMP
-      if (use_zmp_truncation) {
+      if (use_zmp_truncation && !is_walking) {
         Eigen::Vector2d tmp_new_refzmp(new_refzmp.head(2));
         szd->get_vertices(support_polygon_vetices);
         szd->calc_convex_hull(support_polygon_vetices, ref_contact_states, ee_pos, ee_rot);
