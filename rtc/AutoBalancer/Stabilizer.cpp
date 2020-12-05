@@ -779,7 +779,7 @@ void Stabilizer::getActualParametersForST ()
           pos_ctrl = calcDampingControl (ref_f_diff, f_diff, pos_ctrl,
                                          tmp_damping_gain, stikp[0].eefm_pos_time_const_support);
         } else {
-          hrp::Vector3 tmp_damping = stikp[0].eefm_pos_damping_gain * (is_single_walking ? 1.0 : 1.5);
+          hrp::Vector3 tmp_damping = stikp[0].eefm_pos_damping_gain * (is_single_walking ? 1.0 : 2.0);
           if ( (ref_contact_states[contact_states_index_map["rleg"]] && ref_contact_states[contact_states_index_map["lleg"]]) // Reference : double support phase
                || (act_contact_states[0] && act_contact_states[1]) ) { // Actual : double support phase
             // Temporarily use first pos damping gain (stikp[0])
