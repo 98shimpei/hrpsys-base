@@ -124,7 +124,7 @@ class AutoBalancer
   void startStabilizer(void);
   void stopStabilizer(void);
   void setBoxBalancer(int t_id, int b_id);
-  void startBoxBalancer(bool coop_mode, double gain_pos, double gain_rot_p, double gain_rot_d);
+  void startBoxBalancer(bool coop_mode, double gain_pos, double gain_rot_p, double gain_rot_d, double cut_off);
   void stopBoxBalancer(void);
   double getBoxWeight(void);
   void setBoxWeightOffset(void);
@@ -414,6 +414,7 @@ class AutoBalancer
   double jamp_box_amp;
   double jamp_box_period;
   Eigen::AngleAxisd hand_omega;
+  double hand_cut_off;
 };
 
 
