@@ -125,7 +125,8 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       RS_L515_localR(hrp::Matrix33(Eigen::Quaternion<double>(0.646041, 0.278298, -0.280387, -0.652905))),
       jamp_box_angle(0.0),
       jamp_box_period(0),
-      jamp_box_amp(0)
+      jamp_box_amp(0),
+      hand_omega(Eigen::AngleAxisd(0, Eigen::Vector3d::UnitZ()))
 
 {
     m_service0.autobalancer(this);
@@ -1762,10 +1763,9 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             //follow dest rot
             hrp::Vector3 box_now_rot_z = (st->box_rot_camera[st->top_box_id] * st->box_rot_camera_offset[st->top_box_id].transpose()) * hrp::Vector3(0, 0, 1);
             hrp::Vector3 tmp = box_now_rot_z - box_dest_rot_z;
-            st->hand_diff_d = 0.5 * st->hand_diff_d + 0.5 * (tmp - st->hand_diff)/st->box_update_time;
             st->hand_diff = tmp;
           }
-          Eigen::AngleAxisd hand_omega;
+          st->hand_diff_d = hand_omega * hrp::Vector3(0, 0, 1) / m_dt;
           hand_omega = Eigen::AngleAxisd(-(box_gain_function(st->hand_diff[0]) * st->box_balancer_rot_gain_p + st->hand_diff_d[0] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitY()) * Eigen::AngleAxisd((box_gain_function(st->hand_diff[1]) * st->box_balancer_rot_gain_p + st->hand_diff_d[1] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitX());
           st->hand_rot = hand_omega * st->hand_rot;
           ikp["rarm"].hand_pos = 0.9995 * ikp["rarm"].hand_pos;

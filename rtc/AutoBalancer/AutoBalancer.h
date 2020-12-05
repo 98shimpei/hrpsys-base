@@ -413,6 +413,7 @@ class AutoBalancer
   double jamp_box_angle;
   double jamp_box_amp;
   double jamp_box_period;
+  Eigen::AngleAxisd hand_omega;
 };
 
 
