@@ -74,9 +74,9 @@ void AutoBalancerService_impl::setBoxBalancer(CORBA::UShort t_id, CORBA::UShort 
   m_autobalancer->setBoxBalancer(t_id, b_id);
 }
 
-void AutoBalancerService_impl::startBoxBalancer(CORBA::Double gain_pos, CORBA::Double gain_rot_p, CORBA::Double gain_rot_d)
+void AutoBalancerService_impl::startBoxBalancer(CORBA::Boolean coop_mode, CORBA::Double gain_pos, CORBA::Double gain_rot_p, CORBA::Double gain_rot_d)
 {
-  m_autobalancer->startBoxBalancer(gain_pos, gain_rot_p, gain_rot_d);
+  m_autobalancer->startBoxBalancer(coop_mode, gain_pos, gain_rot_p, gain_rot_d);
 }
 
 void AutoBalancerService_impl::stopBoxBalancer(void)

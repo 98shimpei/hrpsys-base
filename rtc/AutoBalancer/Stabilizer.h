@@ -170,6 +170,7 @@ public:
   boost::circular_buffer<double> box_weight_buf; //average of 10 times
   double box_weight_offset;
   bool box_control_mode;
+  bool box_coop_mode;
   hrp::Vector3 hand_diff;
   hrp::Vector3 hand_diff_d;
   Eigen::AngleAxisd hand_rot;
@@ -217,7 +218,7 @@ public:
   void startStabilizer(void);
   void stopStabilizer(void);
   void setBoxBalancer(int t_id, int b_id);
-  void startBoxBalancer(double gain_pos, double gain_rot_p, double gain_rot_d);
+  void startBoxBalancer(bool coop_mode, double gain_pos, double gain_rot_p, double gain_rot_d);
   void stopBoxBalancer(void);
   double getBoxWeight(void);
   void setBoxWeightOffset(void);

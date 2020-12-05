@@ -244,6 +244,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   box_pos_offset = hrp::Vector3::Zero();
   look_at_point = hrp::Vector3::Zero();
   box_control_mode = false;
+  box_coop_mode = false;
   box_weight = 0;
   box_weight_offset = 0;
   box_weight_buf = boost::circular_buffer<double>(10);
@@ -1009,7 +1010,7 @@ void Stabilizer::setBoxBalancer(int t_id, int b_id) {
     }
 }
 
-void Stabilizer::startBoxBalancer(double gain_pos, double gain_rot_p, double gain_rot_d)
+void Stabilizer::startBoxBalancer(bool coop_mode, double gain_pos, double gain_rot_p, double gain_rot_d)
 {
     if (box_weight < 0.5) {
       std::cerr << "please call after lift boxes" << std::endl;
@@ -1017,6 +1018,7 @@ void Stabilizer::startBoxBalancer(double gain_pos, double gain_rot_p, double gai
     }
     std::cerr << "startBoxBalancer" << std::endl;
     box_control_mode = true;
+    box_coop_mode = coop_mode;
 
     box_balancer_pos_gain = gain_pos;
     box_balancer_rot_gain_p = gain_rot_p;

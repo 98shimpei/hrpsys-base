@@ -1620,8 +1620,8 @@ void AutoBalancer::updateHeadPose ()
     //head_left_optical_frameの座標系で見るとx(横)方向は動きと座標が逆になる
     double head_diff_d0 = st->look_at_point(0) / st->look_at_point(2);
     double head_diff_d1 = st->look_at_point(1) / st->look_at_point(2);
-    vlimit(head_diff_d0, -0.0011 / st->look_at_box_gain, 0.0011 / st->look_at_box_gain);
-    vlimit(head_diff_d1, -0.0011 / st->look_at_box_gain, 0.0011 / st->look_at_box_gain);
+    vlimit(head_diff_d0, -0.0009 / st->look_at_box_gain, 0.0009 / st->look_at_box_gain);
+    vlimit(head_diff_d1, -0.0009 / st->look_at_box_gain, 0.0009 / st->look_at_box_gain);
     st->head_diff[0] -= st->look_at_box_gain * head_diff_d0;
     st->head_diff[1] += st->look_at_box_gain * head_diff_d1;
   } else {
@@ -1772,17 +1772,20 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
           ikp["larm"].hand_pos = 0.9995 * ikp["larm"].hand_pos;
           ikp["rarm"].hand_pos += (hand_omega * (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()));
           ikp["larm"].hand_pos += (hand_omega * (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()));
-          //ikp["rarm"].hand_pos(0) = 0;
-          //ikp["rarm"].hand_pos(1) = 0;
-          //ikp["larm"].hand_pos(0) = 0;
-          //ikp["larm"].hand_pos(1) = 0;
+
+          if (st->box_coop_mode) {//点接触モード（協調運搬）
+            ikp["rarm"].hand_pos(0) = 0;
+            ikp["rarm"].hand_pos(1) = 0;
+            ikp["larm"].hand_pos(0) = 0;
+            ikp["larm"].hand_pos(1) = 0;
+          }
         }
 
         if (st->hand_rot.angle() > 0.5) st->hand_rot.angle() = 0.5;//0.5
     } else if (!st->box_control_mode) {
         st->hand_rot.angle() = 0.997 * st->hand_rot.angle();
-        ikp["rarm"].hand_pos = 0.997 * ikp["rarm"].hand_pos;
-        ikp["larm"].hand_pos = 0.997 * ikp["larm"].hand_pos;
+        ikp["rarm"].hand_pos = ikp["rarm"].hand_pos - 0.002 * (ikp["rarm"].hand_pos + ikp["larm"].hand_pos);
+        ikp["larm"].hand_pos = ikp["larm"].hand_pos - 0.002 * (ikp["larm"].hand_pos + ikp["larm"].hand_pos);
     }
     
     if (st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()) {
@@ -1795,7 +1798,9 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
          && it->first.find("arm") != std::string::npos ) {
-            it->second.target_r0 = st->hand_rot * it->second.target_r0;
+            if (!st->box_coop_mode) {
+              it->second.target_r0 = st->hand_rot * it->second.target_r0;
+            }
             it->second.target_p0 += it->second.hand_pos;
         }
     }
@@ -2517,9 +2522,9 @@ void AutoBalancer::setBoxBalancer(int t_id, int b_id)
   st->setBoxBalancer(t_id, b_id);
 }
 
-void AutoBalancer::startBoxBalancer(double gain_pos, double gain_rot_p, double gain_rot_d)
+void AutoBalancer::startBoxBalancer(bool coop_mode, double gain_pos, double gain_rot_p, double gain_rot_d)
 {
-  st->startBoxBalancer(gain_pos, gain_rot_p, gain_rot_d);
+  st->startBoxBalancer(coop_mode, gain_pos, gain_rot_p, gain_rot_d);
 }
 
 void AutoBalancer::stopBoxBalancer(void)
