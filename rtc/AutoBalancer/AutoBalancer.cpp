@@ -1756,7 +1756,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             hrp::Vector3 box_misalignment = st->box_pos_camera[st->top_box_id] - box_offset_camera;
             hrp::Vector3 box_axis(box_misalignment(1), -box_misalignment(0), 0);
             double box_dest_rot_angle = box_misalignment.norm() * st->box_balancer_pos_gain;
-            if (box_dest_rot_angle > 0.2) box_dest_rot_angle = 0.2;
+            if (box_dest_rot_angle > 0.3) box_dest_rot_angle = 0.3;
             
             Eigen::AngleAxisd box_dest_rot = Eigen::AngleAxisd(box_dest_rot_angle, box_axis.normalized());
             hrp::Vector3 box_dest_rot_z = box_dest_rot * hrp::Vector3(0, 0, 1);
