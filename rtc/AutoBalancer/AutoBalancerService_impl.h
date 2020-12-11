@@ -30,7 +30,7 @@ public:
   void stopStabilizer(void);
   void setBoxBalancer(CORBA::UShort t_id, CORBA::UShort b_id);
   void startBoxBalancer(CORBA::Boolean coop_mode, CORBA::Double gain_pos, CORBA::Double gain_rot_p, CORBA::Double gain_rot_d, CORBA::Double cut_off);
-  void stopBoxBalancer(void);
+  void stopBoxBalancer(CORBA::Double gain);
   CORBA::Double getBoxWeight(void);
   void setBoxWeightOffset(void);
   void startLookAtBox(CORBA::Double gain);

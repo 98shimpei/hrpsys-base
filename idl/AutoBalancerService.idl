@@ -780,7 +780,7 @@ module OpenHRP
     
     void startBoxBalancer(in boolean coop_mode, in double gain_pos, in double gain_rot_p, in double gain_rot_d, in double cut_off);
     
-    void stopBoxBalancer();
+    void stopBoxBalancer(in double gain);
 
     double getBoxWeight();
     

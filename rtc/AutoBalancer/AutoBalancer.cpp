@@ -127,7 +127,8 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       jamp_box_period(0),
       jamp_box_amp(0),
       hand_omega(Eigen::AngleAxisd(0, Eigen::Vector3d::UnitZ())),
-      hand_cut_off(0)
+      hand_cut_off(0),
+      box_recover_gain(0.997)
 
 {
     m_service0.autobalancer(this);
@@ -1773,8 +1774,8 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
           if (std::abs(st->hand_diff_d[1]) > hand_cut_off) st->hand_diff_d[1] = hand_cut_off * hand_cut_off / st->hand_diff_d[1];
           hand_omega = Eigen::AngleAxisd(-(box_gain_function(st->hand_diff[0]) * st->box_balancer_rot_gain_p + st->hand_diff_d[0] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitY()) * Eigen::AngleAxisd((box_gain_function(st->hand_diff[1]) * st->box_balancer_rot_gain_p + st->hand_diff_d[1] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitX());
           st->hand_rot = hand_omega * st->hand_rot;
-          ikp["rarm"].hand_pos = 0.9995 * ikp["rarm"].hand_pos;
-          ikp["larm"].hand_pos = 0.9995 * ikp["larm"].hand_pos;
+          ikp["rarm"].hand_pos = ikp["rarm"].hand_pos - 0.002 * (ikp["rarm"].hand_pos + ikp["larm"].hand_pos);
+          ikp["larm"].hand_pos = ikp["larm"].hand_pos - 0.002 * (ikp["larm"].hand_pos + ikp["larm"].hand_pos);
           ikp["rarm"].hand_pos += (hand_omega * (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()));
           ikp["larm"].hand_pos += (hand_omega * (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()));
 
@@ -1788,7 +1789,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
 
         if (st->hand_rot.angle() > 0.5) st->hand_rot.angle() = 0.5;//0.5
     } else if (!st->box_control_mode) {
-        st->hand_rot.angle() = 0.997 * st->hand_rot.angle();
+        st->hand_rot.angle() = box_recover_gain * st->hand_rot.angle();
         ikp["rarm"].hand_pos = ikp["rarm"].hand_pos - 0.002 * (ikp["rarm"].hand_pos + ikp["larm"].hand_pos);
         ikp["larm"].hand_pos = ikp["larm"].hand_pos - 0.002 * (ikp["larm"].hand_pos + ikp["larm"].hand_pos);
     }
@@ -2533,9 +2534,10 @@ void AutoBalancer::startBoxBalancer(bool coop_mode, double gain_pos, double gain
   hand_cut_off = cut_off;
 }
 
-void AutoBalancer::stopBoxBalancer(void)
+void AutoBalancer::stopBoxBalancer(double gain)
 {
   st->stopBoxBalancer();
+  box_recover_gain = gain;
 }
 
 void AutoBalancer::startLookAtBox(double gain)

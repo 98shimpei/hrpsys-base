@@ -79,9 +79,9 @@ void AutoBalancerService_impl::startBoxBalancer(CORBA::Boolean coop_mode, CORBA:
   m_autobalancer->startBoxBalancer(coop_mode, gain_pos, gain_rot_p, gain_rot_d, cut_off);
 }
 
-void AutoBalancerService_impl::stopBoxBalancer(void)
+void AutoBalancerService_impl::stopBoxBalancer(CORBA::Double gain)
 {
-  m_autobalancer->stopBoxBalancer();
+  m_autobalancer->stopBoxBalancer(gain);
 }
 
 CORBA::Double AutoBalancerService_impl::getBoxWeight(void)
