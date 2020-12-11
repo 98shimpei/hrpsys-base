@@ -1751,20 +1751,22 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             st->box_rot_camera_offset.find(st->base_box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()){
           if (st->box_update_flag) {
             st->box_update_flag = false;
+            hrp::Vector3 box_dest_rot_z = hrp::Vector3(0, 0, 1);
             //calc dest rot
-            hrp::Vector3 box_offset_camera = st->box_rot_camera[st->base_box_id] * st->box_local_pos + st->box_pos_camera[st->base_box_id];
-            hrp::Vector3 box_misalignment = st->box_pos_camera[st->top_box_id] - box_offset_camera;
-            hrp::Vector3 box_axis(box_misalignment(1), -box_misalignment(0), 0);
-            double box_dest_rot_angle = box_misalignment.norm() * st->box_balancer_pos_gain;
-            if (box_dest_rot_angle > 0.3) box_dest_rot_angle = 0.3;
-            
-            Eigen::AngleAxisd box_dest_rot = Eigen::AngleAxisd(box_dest_rot_angle, box_axis.normalized());
-            hrp::Vector3 box_dest_rot_z = box_dest_rot * hrp::Vector3(0, 0, 1);
+            if (st->base_box_id != st->top_box_id) {
+              hrp::Vector3 box_offset_camera = st->box_rot_camera[st->base_box_id] * st->box_local_pos + st->box_pos_camera[st->base_box_id];
+              hrp::Vector3 box_misalignment = st->box_pos_camera[st->top_box_id] - box_offset_camera;
+              hrp::Vector3 box_axis(box_misalignment(1), -box_misalignment(0), 0);
+              double box_dest_rot_angle = box_misalignment.norm() * st->box_balancer_pos_gain;
+              if (box_dest_rot_angle > 0.3) box_dest_rot_angle = 0.3;
+
+              Eigen::AngleAxisd box_dest_rot = Eigen::AngleAxisd(box_dest_rot_angle, box_axis.normalized());
+              box_dest_rot_z = box_dest_rot * hrp::Vector3(0, 0, 1);
+            }
 
             //follow dest rot
             hrp::Vector3 box_now_rot_z = (st->box_rot_camera[st->top_box_id] * st->box_rot_camera_offset[st->top_box_id].transpose()) * hrp::Vector3(0, 0, 1);
-            hrp::Vector3 tmp = box_now_rot_z - box_dest_rot_z;
-            st->hand_diff = tmp;
+            st->hand_diff = box_now_rot_z - box_dest_rot_z;
           }
           st->hand_diff_d = hand_omega * hrp::Vector3(0, 0, 1) / m_dt;
           if (std::abs(st->hand_diff_d[0]) > hand_cut_off) st->hand_diff_d[0] = hand_cut_off * hand_cut_off / st->hand_diff_d[0];
@@ -4118,8 +4120,7 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
 
 hrp::Vector3 AutoBalancer::calc_vel_from_hand_error (const coordinates& tmp_fix_coords)
 {
-  //if (graspless_manip_mode) {
-  if (true) {
+  if (graspless_manip_mode) {
     hrp::Vector3 dp,dr;
     coordinates ref_hand_coords(gg->get_dst_foot_midcoords()), act_hand_coords;
     ref_hand_coords.transform(graspless_manip_reference_trans_coords); // desired arm coords
@@ -4149,9 +4150,6 @@ hrp::Vector3 AutoBalancer::calc_vel_from_hand_error (const coordinates& tmp_fix_
     //alias(dp) = foot_mt * dp;
     hrp::Vector3 dp2 = foot_mt * dp;
     //alias(dr) = foot_mt * dr;
-    std::cerr << std::endl;
-    std::cerr << "dp,dr " << dp2(0) << " " << dp2(1) << " " << dr(2) << std::endl;
-    std::cerr << std::endl;
     return hrp::Vector3(graspless_manip_p_gain[0] * dp2(0)/gg->get_default_step_time(),
                         graspless_manip_p_gain[1] * dp2(1)/gg->get_default_step_time(),
                         graspless_manip_p_gain[2] * rad2deg(dr(2))/gg->get_default_step_time());
