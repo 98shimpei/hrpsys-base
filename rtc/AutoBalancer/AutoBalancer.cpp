@@ -128,7 +128,8 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       jamp_box_amp(0),
       hand_omega(Eigen::AngleAxisd(0, Eigen::Vector3d::UnitZ())),
       hand_cut_off(0),
-      box_recover_gain(0.997)
+      box_recover_gain(0.997),
+      box_misalignment(hrp::Vector3::Zero())
 
 {
     m_service0.autobalancer(this);
@@ -1756,7 +1757,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             //calc dest rot
             if (st->base_box_id != st->top_box_id) {
               hrp::Vector3 box_offset_camera = st->box_rot_camera[st->base_box_id] * st->box_local_pos + st->box_pos_camera[st->base_box_id];
-              hrp::Vector3 box_misalignment = st->box_pos_camera[st->top_box_id] - box_offset_camera;
+              box_misalignment = st->box_pos_camera[st->top_box_id] - box_offset_camera;
               hrp::Vector3 box_axis(box_misalignment(1), -box_misalignment(0), 0);
               double box_dest_rot_angle = box_misalignment.norm() * st->box_balancer_pos_gain;
               if (box_dest_rot_angle > 0.3) box_dest_rot_angle = 0.3;
@@ -1813,7 +1814,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
 
     //low pass filter
 
-    float ft = 2.0 * m_dt;
+    float ft = 5.0 * m_dt;
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
              && it->first.find("arm") != std::string::npos ) {
@@ -1832,9 +1833,20 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     
     //jamp_box
     if (jamp_box_angle > 0) jamp_box_angle -= 2.0 * M_PI * m_dt / jamp_box_period;
-    if (jamp_box_angle < 0) jamp_box_angle = 0;
+    if (jamp_box_angle < 0) {
+      jamp_box_angle = 0;
+      box_misalignment = hrp::Vector3::Zero();
+    }
     ikp["rarm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * 0.5 * (1.0 - std::cos(jamp_box_angle)));
     ikp["larm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * 0.5 * (1.0 - std::cos(jamp_box_angle)));
+    hrp::Vector3 box_axis(box_misalignment(1), -box_misalignment(0), 0);
+    double box_jamp_rot_angle = box_misalignment.norm() * jamp_box_amp * 0.5 * (1.0 - std::cos(jamp_box_angle));
+    if (box_jamp_rot_angle > 0.3) box_jamp_rot_angle = 0.3;
+    Eigen::AngleAxisd box_jamp_rot = Eigen::AngleAxisd(box_jamp_rot_angle, box_axis.normalized());
+    ikp["rarm"].target_p0 += (box_jamp_rot * (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()));
+    ikp["larm"].target_p0 += (box_jamp_rot * (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()));
+    ikp["rarm"].target_r0 =  box_jamp_rot * ikp["rarm"].target_r0;
+    ikp["larm"].target_r0 =  box_jamp_rot * ikp["larm"].target_r0;
 };
 
 void AutoBalancer::calculateOutputRefForces ()
@@ -2561,7 +2573,7 @@ void AutoBalancer::setBoxWeightOffset(void)
 }
 
 void AutoBalancer::jampBox(double p, double a) {
-  jamp_box_angle = 2.0 * M_PI;
+  jamp_box_angle = 2.0 * M_PI - 0.0001;
   jamp_box_amp = a;
   jamp_box_period = p;
 }
