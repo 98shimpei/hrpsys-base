@@ -35,7 +35,7 @@ public:
   void setBoxWeightOffset(void);
   void startLookAtBox(CORBA::Double gain);
   void stopLookAtBox(void);
-  void jampBox(double p, double a);
+  void jampBox(double p, double a, double ar);
   CORBA::Boolean setGaitGeneratorParam(const OpenHRP::AutoBalancerService::GaitGeneratorParam& i_param);
   CORBA::Boolean getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGeneratorParam_out i_param);
   CORBA::Boolean setAutoBalancerParam(const OpenHRP::AutoBalancerService::AutoBalancerParam& i_param);

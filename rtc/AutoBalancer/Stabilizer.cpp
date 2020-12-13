@@ -1012,10 +1012,10 @@ void Stabilizer::setBoxBalancer(int t_id, int b_id) {
 
 void Stabilizer::startBoxBalancer(bool coop_mode, double gain_pos, double gain_rot_p, double gain_rot_d)
 {
-    if (box_weight < 0.5) {
+    /*if (box_weight < 0.5) {
       std::cerr << "please call after lift boxes" << std::endl;
       return;
-    }
+    }*/
     std::cerr << "startBoxBalancer" << std::endl;
     box_control_mode = true;
     box_coop_mode = coop_mode;

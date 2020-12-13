@@ -126,6 +126,8 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       jamp_box_angle(0.0),
       jamp_box_period(0),
       jamp_box_amp(0),
+      jamp_box_amp_rot(0),
+      jamp_box_misalignment(hrp::Vector3::Zero()),
       hand_omega(Eigen::AngleAxisd(0, Eigen::Vector3d::UnitZ())),
       hand_cut_off(0),
       box_recover_gain(0.997),
@@ -1744,39 +1746,43 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     //box_balancer
     //手のdiffを加える前のm_robot
     if (st->box_control_mode /*&& st->box_weight > 1.0*/) {
-        //hand force
-        //hrp::Vector3 hand_axis((st->box_pos - box_offset)(1), -(st->box_pos - box_offset)(0), 0);
-        //st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * st->box_balancer_gain, hand_axis) * st->hand_rot;
+      //hand force
+      //hrp::Vector3 hand_axis((st->box_pos - box_offset)(1), -(st->box_pos - box_offset)(0), 0);
+      //st->hand_rot = Eigen::AngleAxisd(hand_axis.norm() * st->box_balancer_gain, hand_axis) * st->hand_rot;
 
-        //camera pos
-        if (st->box_rot_camera_offset.find(st->top_box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(st->top_box_id) != st->box_rot_camera.end() &&
-            st->box_rot_camera_offset.find(st->base_box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()){
-          if (st->box_update_flag) {
-            st->box_update_flag = false;
-            hrp::Vector3 box_dest_rot_z = hrp::Vector3(0, 0, 1);
-            //calc dest rot
-            if (st->base_box_id != st->top_box_id) {
-              hrp::Vector3 box_offset_camera = st->box_rot_camera[st->base_box_id] * st->box_local_pos + st->box_pos_camera[st->base_box_id];
-              box_misalignment = st->box_pos_camera[st->top_box_id] - box_offset_camera;
-              hrp::Vector3 box_axis(box_misalignment(1), -box_misalignment(0), 0);
-              double box_dest_rot_angle = box_misalignment.norm() * st->box_balancer_pos_gain;
-              if (box_dest_rot_angle > 0.3) box_dest_rot_angle = 0.3;
+      //camera pos
+      if (st->box_rot_camera_offset.find(st->top_box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(st->top_box_id) != st->box_rot_camera.end() &&
+          st->box_rot_camera_offset.find(st->base_box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()){
+        if (st->box_update_flag) {
+          st->box_update_flag = false;
+          hrp::Vector3 box_dest_rot_z = hrp::Vector3(0, 0, 1);
+          //calc dest rot
+          if (st->base_box_id != st->top_box_id) {
+            hrp::Vector3 box_offset_camera = st->box_rot_camera[st->base_box_id] * st->box_local_pos + st->box_pos_camera[st->base_box_id];
+            box_misalignment = st->box_pos_camera[st->top_box_id] - box_offset_camera;
+            hrp::Vector3 box_axis(box_misalignment(1), -box_misalignment(0), 0);
+            double box_dest_rot_angle = box_misalignment.norm() * st->box_balancer_pos_gain;
+            if (box_dest_rot_angle > 0.3) box_dest_rot_angle = 0.3;
 
-              Eigen::AngleAxisd box_dest_rot = Eigen::AngleAxisd(box_dest_rot_angle, box_axis.normalized());
-              box_dest_rot_z = box_dest_rot * hrp::Vector3(0, 0, 1);
-            }
-
-            //follow dest rot
-            hrp::Vector3 box_now_rot_z = (st->box_rot_camera[st->top_box_id] * st->box_rot_camera_offset[st->top_box_id].transpose()) * hrp::Vector3(0, 0, 1);
-            st->hand_diff = box_now_rot_z - box_dest_rot_z;
+            Eigen::AngleAxisd box_dest_rot = Eigen::AngleAxisd(box_dest_rot_angle, box_axis.normalized());
+            box_dest_rot_z = box_dest_rot * hrp::Vector3(0, 0, 1);
           }
-          st->hand_diff_d = hand_omega * hrp::Vector3(0, 0, 1) / m_dt;
-          if (std::abs(st->hand_diff_d[0]) > hand_cut_off) st->hand_diff_d[0] = hand_cut_off * hand_cut_off / st->hand_diff_d[0];
-          if (std::abs(st->hand_diff_d[1]) > hand_cut_off) st->hand_diff_d[1] = hand_cut_off * hand_cut_off / st->hand_diff_d[1];
-          hand_omega = Eigen::AngleAxisd(-(box_gain_function(st->hand_diff[0]) * st->box_balancer_rot_gain_p + st->hand_diff_d[0] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitY()) * Eigen::AngleAxisd((box_gain_function(st->hand_diff[1]) * st->box_balancer_rot_gain_p + st->hand_diff_d[1] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitX());
+
+          //follow dest rot
+          hrp::Vector3 box_now_rot_z = (st->box_rot_camera[st->top_box_id] * st->box_rot_camera_offset[st->top_box_id].transpose()) * hrp::Vector3(0, 0, 1);
+          st->hand_diff = box_now_rot_z - box_dest_rot_z;
+        }
+        st->hand_diff_d = hand_omega * hrp::Vector3(0, 0, 1) / m_dt;
+        if (std::abs(st->hand_diff_d[0]) > hand_cut_off) st->hand_diff_d[0] = hand_cut_off * hand_cut_off / st->hand_diff_d[0];
+        if (std::abs(st->hand_diff_d[1]) > hand_cut_off) st->hand_diff_d[1] = hand_cut_off * hand_cut_off / st->hand_diff_d[1];
+        hand_omega = Eigen::AngleAxisd(-(box_gain_function(st->hand_diff[0]) * st->box_balancer_rot_gain_p + st->hand_diff_d[0] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitY()) * Eigen::AngleAxisd((box_gain_function(st->hand_diff[1]) * st->box_balancer_rot_gain_p + st->hand_diff_d[1] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitX());
+        Eigen::AngleAxisd tmprot;
+        tmprot = hand_omega * st->hand_rot;
+        if (tmprot.angle() < 0.5) {
           st->hand_rot = hand_omega * st->hand_rot;
-          ikp["rarm"].hand_pos = ikp["rarm"].hand_pos - 0.002 * (ikp["rarm"].hand_pos + ikp["larm"].hand_pos);
-          ikp["larm"].hand_pos = ikp["larm"].hand_pos - 0.002 * (ikp["larm"].hand_pos + ikp["larm"].hand_pos);
+          hrp::Vector3 tmpdiffpos = 0.002 * (ikp["rarm"].hand_pos + ikp["larm"].hand_pos);
+          ikp["rarm"].hand_pos -= tmpdiffpos;
+          ikp["larm"].hand_pos -= tmpdiffpos;
           ikp["rarm"].hand_pos += (hand_omega * (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()));
           ikp["larm"].hand_pos += (hand_omega * (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()));
 
@@ -1787,19 +1793,26 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             ikp["larm"].hand_pos(1) = 0;
           }
         }
-
-        if (st->hand_rot.angle() > 0.5) st->hand_rot.angle() = 0.5;//0.5
+      }
     } else if (!st->box_control_mode) {
-        st->hand_rot.angle() = box_recover_gain * st->hand_rot.angle();
-        ikp["rarm"].hand_pos = ikp["rarm"].hand_pos - 0.002 * (ikp["rarm"].hand_pos + ikp["larm"].hand_pos);
-        ikp["larm"].hand_pos = ikp["larm"].hand_pos - 0.002 * (ikp["larm"].hand_pos + ikp["larm"].hand_pos);
+      hand_omega = st->hand_rot;
+      Eigen::AngleAxisd next_rot = st->hand_rot;
+      next_rot.angle() = box_recover_gain * next_rot.angle();
+      hand_omega = next_rot * hrp::Matrix33(st->hand_rot).transpose();
+      st->hand_rot = next_rot;
+      hrp::Vector3 tmpdiffpos = 0.002 * (ikp["rarm"].hand_pos + ikp["larm"].hand_pos);
+      ikp["rarm"].hand_pos -= tmpdiffpos;
+      ikp["larm"].hand_pos -= tmpdiffpos;
+      ikp["rarm"].hand_pos += (hand_omega * (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()));
+      ikp["larm"].hand_pos += (hand_omega * (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()));
     }
     
-    if (st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()) {
+    /*if (st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()) {
       st->box_rotation_center->passFilter(st->box_pos_camera[st->base_box_id]);
     } else {
       st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
-    }
+    }*/
+    st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
 
 
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
@@ -1836,12 +1849,14 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     if (jamp_box_angle < 0) {
       jamp_box_angle = 0;
       box_misalignment = hrp::Vector3::Zero();
+      jamp_box_misalignment = hrp::Vector3::Zero();
     }
     ikp["rarm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * 0.5 * (1.0 - std::cos(jamp_box_angle)));
     ikp["larm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * 0.5 * (1.0 - std::cos(jamp_box_angle)));
-    hrp::Vector3 box_axis(box_misalignment(1), -box_misalignment(0), 0);
-    if (box_misalignment.norm() != 0) {
-      double box_jamp_rot_angle = box_misalignment.norm() * jamp_box_amp * 0.5 * (1.0 - std::cos(jamp_box_angle));
+    hrp::Vector3 box_axis(jamp_box_misalignment(1), -jamp_box_misalignment(0), 0);
+    std::cerr << jamp_box_misalignment.transpose() << std::endl;
+    if (jamp_box_misalignment.norm() != 0) {
+      double box_jamp_rot_angle = jamp_box_misalignment.norm() * jamp_box_amp_rot * 0.5 * (1.0 - std::cos(jamp_box_angle));
       if (box_jamp_rot_angle > 0.3) box_jamp_rot_angle = 0.3;
       Eigen::AngleAxisd box_jamp_rot = Eigen::AngleAxisd(box_jamp_rot_angle, box_axis.normalized());
       ikp["rarm"].target_p0 += (box_jamp_rot * (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()));
@@ -2574,9 +2589,11 @@ void AutoBalancer::setBoxWeightOffset(void)
   st->setBoxWeightOffset();
 }
 
-void AutoBalancer::jampBox(double p, double a) {
+void AutoBalancer::jampBox(double p, double a, double ar) {
   jamp_box_angle = 2.0 * M_PI - 0.0001;
   jamp_box_amp = a;
+  jamp_box_amp_rot = ar;
+  jamp_box_misalignment = box_misalignment;
   jamp_box_period = p;
 }
 
