@@ -131,7 +131,13 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       hand_omega(Eigen::AngleAxisd(0, Eigen::Vector3d::UnitZ())),
       hand_cut_off(0),
       box_recover_gain(0.997),
-      box_misalignment(hrp::Vector3::Zero())
+      box_misalignment(hrp::Vector3::Zero()),
+      xk(hrp::Vector3::Zero()),
+      xk_1(hrp::Vector3::Zero()),
+      xdk(hrp::Vector3::Zero()),
+      xdk_1(hrp::Vector3::Zero()),
+      xrefk(hrp::Vector3::Zero()),
+      w(0)
 
 {
     m_service0.autobalancer(this);
@@ -1130,12 +1136,12 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       /*m_shimpei.data[0] = st->stikp[2].ee_pos[0];//right hand pos
       m_shimpei.data[1] = st->stikp[2].ee_pos[1];
       m_shimpei.data[2] = st->stikp[2].ee_pos[2];*/
-      m_shimpei.data[0] = st->world_force["rhsensor"]->getCurrentValue()(0);
-      m_shimpei.data[1] = st->world_force["rhsensor"]->getCurrentValue()(1);
-      m_shimpei.data[2] = st->world_force["rhsensor"]->getCurrentValue()(2);
-      m_shimpei.data[3] = st->world_force["lhsensor"]->getCurrentValue()(0);
-      m_shimpei.data[4] = st->world_force["lhsensor"]->getCurrentValue()(1);
-      m_shimpei.data[5] = st->world_force["lhsensor"]->getCurrentValue()(2);
+      m_shimpei.data[0] = xrefk(0);
+      m_shimpei.data[1] = xrefk(1);
+      m_shimpei.data[2] = xrefk(2);
+      m_shimpei.data[3] = xk(0);
+      m_shimpei.data[4] = xk(1);
+      m_shimpei.data[5] = xk(2);
       m_shimpei.data[6] = st->box_weight;//right hand pos
       m_shimpei.data[7] = st->box_pos(0);
       m_shimpei.data[8] = st->box_pos(1);
@@ -1742,6 +1748,16 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         }
       }
     }
+
+    xrefk = (ikp["rarm"].target_p0 + ikp["larm"].target_p0) / 2.0;
+    w = 0.99;
+    xk_1 = xk;
+    xdk_1 = xdk;
+    xk = w * (xk_1 - m_dt * xdk_1) + (1 - w) * xrefk;
+    xdk = (xk - xk_1) / m_dt;
+    hrp::Vector3 xkdiff = xk - xrefk;
+    ikp["rarm"].target_p0 += xkdiff;
+    ikp["larm"].target_p0 += xkdiff;
     
     //box_balancer
     //手のdiffを加える前のm_robot

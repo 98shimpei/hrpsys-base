@@ -419,6 +419,12 @@ class AutoBalancer
   double hand_cut_off;
   double box_recover_gain;
   hrp::Vector3 box_misalignment;
+  hrp::Vector3 xk;
+  hrp::Vector3 xk_1;
+  hrp::Vector3 xdk;
+  hrp::Vector3 xdk_1;
+  hrp::Vector3 xrefk;
+  double w;
 };
 
 
