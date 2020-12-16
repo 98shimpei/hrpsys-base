@@ -151,8 +151,8 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       xrefk_1(hrp::Vector3::Zero()),
       xrefdk(hrp::Vector3::Zero()),
       xrefdk_1(hrp::Vector3::Zero()),
-      xddk(boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(5.0, 0.002, hrp::Vector3::Zero()))),
-      xrefddk(boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(5.0, 0.002, hrp::Vector3::Zero()))),
+      xddk(boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(10.0, 0.002, hrp::Vector3::Zero()))),
+      xrefddk(boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(10.0, 0.002, hrp::Vector3::Zero()))),
       rk(hrp::Matrix33::Zero()),
       rk_1(hrp::Matrix33::Zero()),
       rdk(hrp::Matrix33::Zero()),
@@ -1187,9 +1187,9 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_shimpei.data[15] = xddk->getCurrentValue()(0);
       m_shimpei.data[16] = xddk->getCurrentValue()(1);
       m_shimpei.data[17] = xddk->getCurrentValue()(2);
-      m_shimpei.data[18] = rrefk(0);
-      m_shimpei.data[19] = rrefk(1);
-      m_shimpei.data[20] = rrefk(2);
+      m_shimpei.data[18] = xdk(0);
+      m_shimpei.data[19] = xdk(1);
+      m_shimpei.data[20] = xdk(2);
       m_shimpei.data[21] = rrefddk->getCurrentValue()(0);
       m_shimpei.data[22] = rrefddk->getCurrentValue()(1);
       m_shimpei.data[23] = rrefddk->getCurrentValue()(2);
@@ -1826,7 +1826,27 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     //hrp::Vector3 rkdiff = rk - rrefk;
     //ikp["rarm"].target_p0 += rkdiff;
     //ikp["larm"].target_p0 += rkdiff;
-    
+
+    //慣性力に応じて傾ける
+    hrp::Vector3 acc_sum = xddk->getCurrentValue() + hrp::Vector3(0, 0, -9.8);
+    hrp::Vector3 acc_axis(-acc_sum(1), acc_sum(0), 0);
+    Eigen::AngleAxisd box_dest_rot;
+    box_dest_rot = hrp::Matrix33::Identity();
+    //if (acc_axis.norm() != 0) {
+    if (false) {
+      if (acc_sum(2) < 0) {
+        std::cerr << xddk->getCurrentValue().transpose() << std::endl;
+        std::cerr << std::atan2(acc_axis.norm(), -acc_sum(2)) << " " << acc_axis.normalized().transpose() <<std::endl;
+        box_dest_rot = Eigen::AngleAxisd(0.1 * std::atan2(acc_axis.norm(), -acc_sum(2)), acc_axis.normalized());
+      }
+    }
+    //if (st->box_control_mode) {
+      ikp["rarm"].target_p0 += (box_dest_rot * (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()));
+      ikp["larm"].target_p0 += (box_dest_rot * (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()));
+      ikp["rarm"].target_r0 =  box_dest_rot * ikp["rarm"].target_r0;
+      ikp["larm"].target_r0 =  box_dest_rot * ikp["larm"].target_r0;
+    //}
+
     //box_balancer
     //手のdiffを加える前のm_robot
     if (st->box_control_mode /*&& st->box_weight > 1.0*/) {
@@ -1839,7 +1859,6 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
           st->box_rot_camera_offset.find(st->base_box_id) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()){
         if (st->box_update_flag) {
           st->box_update_flag = false;
-          hrp::Vector3 box_dest_rot_z = hrp::Vector3(0, 0, 1);
           //calc dest rot
           if (st->base_box_id != st->top_box_id) {
             hrp::Vector3 box_offset_camera = st->box_rot_camera[st->base_box_id] * st->box_local_pos + st->box_pos_camera[st->base_box_id];
@@ -1848,9 +1867,9 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             double box_dest_rot_angle = box_misalignment.norm() * st->box_balancer_pos_gain;
             if (box_dest_rot_angle > 0.3) box_dest_rot_angle = 0.3;
 
-            Eigen::AngleAxisd box_dest_rot = Eigen::AngleAxisd(box_dest_rot_angle, box_axis.normalized());
-            box_dest_rot_z = box_dest_rot * hrp::Vector3(0, 0, 1);
+            box_dest_rot = Eigen::AngleAxisd(box_dest_rot_angle, box_axis.normalized()) * box_dest_rot;
           }
+          hrp::Vector3 box_dest_rot_z = box_dest_rot * hrp::Vector3(0, 0, 1);
 
           //follow dest rot
           hrp::Vector3 box_now_rot_z = (st->box_rot_camera[st->top_box_id] * st->box_rot_camera_offset[st->top_box_id].transpose()) * hrp::Vector3(0, 0, 1);
@@ -1896,7 +1915,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     } else {
       st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
     }*/
-    st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
+    st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5 + hrp::Vector3(0, 0, 0.5));
 
 
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
