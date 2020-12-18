@@ -1932,13 +1932,12 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
       ikp["larm"].hand_pos += (hand_omega * (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()));
     }
     
-    /*if (st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()) {
+    if (st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()) {
       st->box_rotation_center->passFilter(st->box_pos_camera[st->base_box_id]);
     } else {
       st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
-    }*/
-    st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5 + hrp::Vector3(0, 0, 0.5));
-
+    }
+    //st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
 
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
