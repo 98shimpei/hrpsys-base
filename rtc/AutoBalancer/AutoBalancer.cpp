@@ -54,6 +54,11 @@ static std::ostream& operator<<(std::ostream& os, const struct RTC::Time &tm)
 hrp::Matrix33 mat_ave (const hrp::Matrix33& a, const hrp::Matrix33& b)
 {
   hrp::Matrix33 tmp = (a + b) / 2.0;
+  if ((tmp * hrp::Vector3::UnitX()).norm() == 0 ||
+      (tmp * hrp::Vector3::UnitY()).norm() == 0 ||
+      (tmp * hrp::Vector3::UnitZ()).norm() == 0) {
+    return hrp::Matrix33::Identity();
+  }
   hrp::Matrix33 ans = hrp::Matrix33::Identity();
   ans <<
     (tmp * hrp::Vector3::UnitX()).normalized(),
@@ -154,16 +159,12 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       xrefdk_1(hrp::Vector3::Zero()),
       xddk(boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(10.0, 0.002, hrp::Vector3::Zero()))),
       xrefddk(boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(10.0, 0.002, hrp::Vector3::Zero()))),
-      rk(hrp::Matrix33::Zero()),
-      rk_1(hrp::Matrix33::Zero()),
-      rdk(hrp::Matrix33::Zero()),
-      rdk_1(hrp::Matrix33::Zero()),
-      rrefk(hrp::Matrix33::Zero()),
-      rrefk_1(hrp::Matrix33::Zero()),
-      rrefdk(hrp::Matrix33::Zero()),
-      rrefdk_1(hrp::Matrix33::Zero()),
-      rddk(boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(5.0, 0.002, hrp::Vector3::Zero()))),
-      rrefddk(boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(5.0, 0.002, hrp::Vector3::Zero()))),
+      rRk(hrp::Matrix33::Zero()),
+      rRk_1(hrp::Matrix33::Zero()),
+      rRrefk(hrp::Matrix33::Zero()),
+      lRk(hrp::Matrix33::Zero()),
+      lRk_1(hrp::Matrix33::Zero()),
+      lRrefk(hrp::Matrix33::Zero()),
       w(boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(2.0, 0.002, 0.0))),
       w2(boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(2.0, 0.002, 0.0))),
       limit(boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(2.0, 0.002, 0.0)))
@@ -1192,12 +1193,12 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_shimpei.data[15] = xddk->getCurrentValue()(0);
       m_shimpei.data[16] = xddk->getCurrentValue()(1);
       m_shimpei.data[17] = xddk->getCurrentValue()(2);
-      m_shimpei.data[18] = rk.eulerAngles(0, 1, 2)(0);
-      m_shimpei.data[19] = rk.eulerAngles(0, 1, 2)(1);
-      m_shimpei.data[20] = rk.eulerAngles(0, 1, 2)(2);
-      m_shimpei.data[21] = rrefk.eulerAngles(0, 1, 2)(0);
-      m_shimpei.data[22] = rrefk.eulerAngles(0, 1, 2)(1);
-      m_shimpei.data[23] = rrefk.eulerAngles(0, 1, 2)(2);
+      m_shimpei.data[18] = rRk.eulerAngles(0, 1, 2)(0);
+      m_shimpei.data[19] = rRk.eulerAngles(0, 1, 2)(1);
+      m_shimpei.data[20] = rRk.eulerAngles(0, 1, 2)(2);
+      m_shimpei.data[21] = rRrefk.eulerAngles(0, 1, 2)(0);
+      m_shimpei.data[22] = rRrefk.eulerAngles(0, 1, 2)(1);
+      m_shimpei.data[23] = rRrefk.eulerAngles(0, 1, 2)(2);
       //m_shimpei.data[18] = rddk->getCurrentValue()(0);
       //m_shimpei.data[19] = rddk->getCurrentValue()(1);
       //m_shimpei.data[20] = rddk->getCurrentValue()(2);
@@ -1824,36 +1825,29 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     ikp["larm"].target_p0 += xkdiff;
 
 
-    Eigen::AngleAxisd rdiffk;
+    Eigen::AngleAxisd rRdiffk;
+    Eigen::AngleAxisd lRdiffk;
+    Eigen::AngleAxisd Rdiffk;
     {
-      rrefk_1 = rrefk;
-      rrefdk_1 = rrefdk;
-      rk_1 = rk;
-      rdk_1 = rdk;
-      rrefk = mat_ave(ikp["rarm"].target_r0, ikp["larm"].target_r0);
-      //rrefk = ikp["rarm"].target_r0;
-      Eigen::AngleAxisd tmp;
-      tmp = rrefk * rrefk_1.transpose();
-      tmp.angle() = tmp.angle() / m_dt;
-      rrefdk = tmp;
-      tmp = rrefdk * rrefdk_1.transpose();
-      tmp.angle() = tmp.angle() / m_dt;
-      rrefddk->passFilter(hrp::Matrix33(tmp).eulerAngles(0, 1, 2));
-      rdiffk = rk_1 * rrefk.transpose();
-      rdiffk.angle() = w->getCurrentValue() * rdiffk.angle();
-      rk = rdiffk * rrefk;
-      tmp = rk * rk_1.transpose();
-      tmp.angle() = tmp.angle() / m_dt;
-      rdk = tmp;
-      tmp = rdk * rdk_1.transpose();
-      tmp.angle() = tmp.angle() / m_dt;
-      rddk->passFilter(hrp::Matrix33(tmp).eulerAngles(0, 1, 2));
+      rRk_1 = rRk;
+      rRrefk = ikp["rarm"].target_r0;
+      lRk_1 = lRk;
+      lRrefk = ikp["larm"].target_r0;
+
+      rRdiffk = rRk_1 * rRrefk.transpose();
+      rRdiffk.angle() = w->getCurrentValue() * rRdiffk.angle();
+      lRdiffk = lRk_1 * lRrefk.transpose();
+      lRdiffk.angle() = w->getCurrentValue() * lRdiffk.angle();
+      Rdiffk = mat_ave(hrp::Matrix33(rRdiffk), hrp::Matrix33(lRdiffk));
+
+      rRk = rRdiffk * rRrefk;
+      lRk = lRdiffk * lRrefk;
     }
 
-    ikp["rarm"].target_r0 = rdiffk * ikp["rarm"].target_r0;
-    ikp["larm"].target_r0 = rdiffk * ikp["larm"].target_r0;
-    ikp["rarm"].target_p0 += (rdiffk * (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()));
-    ikp["larm"].target_p0 += (rdiffk * (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()));
+    ikp["rarm"].target_r0 = rRk;
+    ikp["larm"].target_r0 = lRk;
+    ikp["rarm"].target_p0 += (Rdiffk * (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()));
+    ikp["larm"].target_p0 += (Rdiffk * (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()));
 
     //慣性力に応じて傾ける
     hrp::Vector3 acc_sum = xddk->getCurrentValue() + hrp::Vector3(0, 0, -9.8);

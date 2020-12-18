@@ -436,16 +436,12 @@ class AutoBalancer
   boost::shared_ptr<FirstOrderLowPassFilter<double> > limit;
   boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > xddk;
   boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > xrefddk;
-  hrp::Matrix33 rk;
-  hrp::Matrix33 rk_1;
-  hrp::Matrix33 rdk;
-  hrp::Matrix33 rdk_1;
-  hrp::Matrix33 rrefk;
-  hrp::Matrix33 rrefk_1;
-  hrp::Matrix33 rrefdk;
-  hrp::Matrix33 rrefdk_1;
-  boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > rddk;
-  boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > rrefddk;
+  hrp::Matrix33 rRk;
+  hrp::Matrix33 rRk_1;
+  hrp::Matrix33 rRrefk;
+  hrp::Matrix33 lRk;
+  hrp::Matrix33 lRk_1;
+  hrp::Matrix33 lRrefk;
 };
 
 
