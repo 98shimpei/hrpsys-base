@@ -413,7 +413,9 @@ module OpenHRP
       double rot_ik_thre;
       /// Flag for fix hand while walking.
       boolean is_hand_fix_mode;
-      double hand_fix_gain;
+      double hand_fix_fall_gain;
+      double hand_fix_slip_gain;
+      double hand_fix_slip_limit;
       sequence<Footstep> end_effector_list;
       /// Default GaitType
       GaitType default_gait_type;

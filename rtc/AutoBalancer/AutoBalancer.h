@@ -378,7 +378,9 @@ class AutoBalancer
 
   unsigned int m_debugLevel;
   bool is_legged_robot, is_stop_mode, is_hand_fix_mode, is_hand_fix_initial;
-  double hand_fix_gain;
+  double hand_fix_fall_gain;
+  double hand_fix_slip_gain;
+  double hand_fix_slip_limit;
   int loop;
   bool graspless_manip_mode;
   std::string graspless_manip_arm;
@@ -422,6 +424,7 @@ class AutoBalancer
   hrp::Vector3 box_misalignment;
   hrp::Vector3 xk;
   hrp::Vector3 xk_1;
+  hrp::Vector3 xk_2;
   hrp::Vector3 xdk;
   hrp::Vector3 xdk_1;
   hrp::Vector3 xrefk;
@@ -429,6 +432,8 @@ class AutoBalancer
   hrp::Vector3 xrefdk;
   hrp::Vector3 xrefdk_1;
   boost::shared_ptr<FirstOrderLowPassFilter<double> > w;
+  boost::shared_ptr<FirstOrderLowPassFilter<double> > w2;
+  boost::shared_ptr<FirstOrderLowPassFilter<double> > limit;
   boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > xddk;
   boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > xrefddk;
   hrp::Matrix33 rk;

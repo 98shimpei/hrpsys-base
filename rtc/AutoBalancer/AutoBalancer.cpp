@@ -145,6 +145,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       box_misalignment(hrp::Vector3::Zero()),
       xk(hrp::Vector3::Zero()),
       xk_1(hrp::Vector3::Zero()),
+      xk_2(hrp::Vector3::Zero()),
       xdk(hrp::Vector3::Zero()),
       xdk_1(hrp::Vector3::Zero()),
       xrefk(hrp::Vector3::Zero()),
@@ -163,7 +164,9 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       rrefdk_1(hrp::Matrix33::Zero()),
       rddk(boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(5.0, 0.002, hrp::Vector3::Zero()))),
       rrefddk(boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(5.0, 0.002, hrp::Vector3::Zero()))),
-      w(boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(2.0, 0.002, 0.0)))
+      w(boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(2.0, 0.002, 0.0))),
+      w2(boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(2.0, 0.002, 0.0))),
+      limit(boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(2.0, 0.002, 0.0)))
 
 {
     m_service0.autobalancer(this);
@@ -616,7 +619,9 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     is_stop_mode = false;
     is_hand_fix_mode = false;
-    hand_fix_gain = 0.0;
+    hand_fix_fall_gain = 0.0;
+    hand_fix_slip_gain = 0.0;
+    hand_fix_slip_limit = 0.0;
 
     use_act_states = false;
     gg->use_act_states = st->use_act_states = true;
@@ -1187,12 +1192,18 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_shimpei.data[15] = xddk->getCurrentValue()(0);
       m_shimpei.data[16] = xddk->getCurrentValue()(1);
       m_shimpei.data[17] = xddk->getCurrentValue()(2);
-      m_shimpei.data[18] = xdk(0);
-      m_shimpei.data[19] = xdk(1);
-      m_shimpei.data[20] = xdk(2);
-      m_shimpei.data[21] = rrefddk->getCurrentValue()(0);
-      m_shimpei.data[22] = rrefddk->getCurrentValue()(1);
-      m_shimpei.data[23] = rrefddk->getCurrentValue()(2);
+      m_shimpei.data[18] = rk.eulerAngles(0, 1, 2)(0);
+      m_shimpei.data[19] = rk.eulerAngles(0, 1, 2)(1);
+      m_shimpei.data[20] = rk.eulerAngles(0, 1, 2)(2);
+      m_shimpei.data[21] = rrefk.eulerAngles(0, 1, 2)(0);
+      m_shimpei.data[22] = rrefk.eulerAngles(0, 1, 2)(1);
+      m_shimpei.data[23] = rrefk.eulerAngles(0, 1, 2)(2);
+      //m_shimpei.data[18] = rddk->getCurrentValue()(0);
+      //m_shimpei.data[19] = rddk->getCurrentValue()(1);
+      //m_shimpei.data[20] = rddk->getCurrentValue()(2);
+      //m_shimpei.data[21] = rrefddk->getCurrentValue()(0);
+      //m_shimpei.data[22] = rrefddk->getCurrentValue()(1);
+      //m_shimpei.data[23] = rrefddk->getCurrentValue()(2);
       m_shimpei.tm = m_qRef.tm;
       m_shimpeiOut.write();
       
@@ -1787,13 +1798,24 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
 
     xrefk_1 = xrefk;
     xrefdk_1 = xrefdk;
+    xk_2 = xk_1;
     xk_1 = xk;
     xdk_1 = xdk;
-    w->passFilter(hand_fix_gain);
+    w->passFilter(hand_fix_fall_gain);
+    w2->passFilter(hand_fix_slip_gain);
+    limit->passFilter(hand_fix_slip_limit);
     xrefk = (ikp["rarm"].target_p0 + ikp["larm"].target_p0) / 2.0;
     xrefdk = (xrefk - xrefk_1) / m_dt;
     xrefddk->passFilter((xrefdk - xrefdk_1) / m_dt);
-    xk = w->getCurrentValue() * (xk_1 - m_dt * xdk_1) + (1 - w->getCurrentValue()) * xrefk;
+    xk = w->getCurrentValue() * xk_1 + (1 - w->getCurrentValue()) * xrefk;
+    hrp::Vector3 acc = (xk-2*xk_1+xk_2)/m_dt/m_dt;
+    for (int i = 0; i < 3; i++) {
+      if (acc(i) > limit->getCurrentValue()) {
+        xk(i) = (1 - w2->getCurrentValue()) * xk(i) + w2->getCurrentValue() * (2*xk_1(i) - xk_2(i) + m_dt*m_dt*limit->getCurrentValue());
+      } else if (acc(i) < -limit->getCurrentValue()) {
+        xk(i) = (1 - w2->getCurrentValue()) * xk(i) + w2->getCurrentValue() * (2*xk_1(i) - xk_2(i) - m_dt*m_dt*limit->getCurrentValue());
+      }
+    }
     xdk = (xk - xk_1) / m_dt;
     xddk->passFilter((xdk - xdk_1) / m_dt);
 
@@ -1801,12 +1823,15 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     ikp["rarm"].target_p0 += xkdiff;
     ikp["larm"].target_p0 += xkdiff;
 
-    /*{
+
+    Eigen::AngleAxisd rdiffk;
+    {
       rrefk_1 = rrefk;
       rrefdk_1 = rrefdk;
       rk_1 = rk;
       rdk_1 = rdk;
       rrefk = mat_ave(ikp["rarm"].target_r0, ikp["larm"].target_r0);
+      //rrefk = ikp["rarm"].target_r0;
       Eigen::AngleAxisd tmp;
       tmp = rrefk * rrefk_1.transpose();
       tmp.angle() = tmp.angle() / m_dt;
@@ -1814,18 +1839,21 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
       tmp = rrefdk * rrefdk_1.transpose();
       tmp.angle() = tmp.angle() / m_dt;
       rrefddk->passFilter(hrp::Matrix33(tmp).eulerAngles(0, 1, 2));
-      rk = w->getCurrentValue() * (rk_1 - m_dt * rdk_1) + (1 - w->getCurrentValue()) * rrefk;
+      rdiffk = rk_1 * rrefk.transpose();
+      rdiffk.angle() = w->getCurrentValue() * rdiffk.angle();
+      rk = rdiffk * rrefk;
       tmp = rk * rk_1.transpose();
       tmp.angle() = tmp.angle() / m_dt;
       rdk = tmp;
       tmp = rdk * rdk_1.transpose();
       tmp.angle() = tmp.angle() / m_dt;
-      rrefddk->passFilter(hrp::Matrix33(tmp).eulerAngles(0, 1, 2));
-    }*/
+      rddk->passFilter(hrp::Matrix33(tmp).eulerAngles(0, 1, 2));
+    }
 
-    //hrp::Vector3 rkdiff = rk - rrefk;
-    //ikp["rarm"].target_p0 += rkdiff;
-    //ikp["larm"].target_p0 += rkdiff;
+    ikp["rarm"].target_r0 = rdiffk * ikp["rarm"].target_r0;
+    ikp["larm"].target_r0 = rdiffk * ikp["larm"].target_r0;
+    ikp["rarm"].target_p0 += (rdiffk * (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()));
+    ikp["larm"].target_p0 += (rdiffk * (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()));
 
     //慣性力に応じて傾ける
     hrp::Vector3 acc_sum = xddk->getCurrentValue() + hrp::Vector3(0, 0, -9.8);
@@ -1840,12 +1868,12 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         box_dest_rot = Eigen::AngleAxisd(0.1 * std::atan2(acc_axis.norm(), -acc_sum(2)), acc_axis.normalized());
       }
     }
-    //if (st->box_control_mode) {
+    if (st->box_control_mode) {
       ikp["rarm"].target_p0 += (box_dest_rot * (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()));
       ikp["larm"].target_p0 += (box_dest_rot * (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()));
       ikp["rarm"].target_r0 =  box_dest_rot * ikp["rarm"].target_r0;
       ikp["larm"].target_r0 =  box_dest_rot * ikp["larm"].target_r0;
-    //}
+    }
 
     //box_balancer
     //手のdiffを加える前のm_robot
@@ -3250,7 +3278,9 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   }
   if (!gg_is_walking) {
       is_hand_fix_mode = i_param.is_hand_fix_mode;
-      hand_fix_gain = i_param.hand_fix_gain;
+      hand_fix_fall_gain = i_param.hand_fix_fall_gain;
+      hand_fix_slip_gain = i_param.hand_fix_slip_gain;
+      hand_fix_slip_limit = i_param.hand_fix_slip_limit;
       std::cerr << "[" << m_profile.instance_name << "]   is_hand_fix_mode = " << is_hand_fix_mode << std::endl;
   } else {
       std::cerr << "[" << m_profile.instance_name << "]   is_hand_fix_mode cannot be set in (gg_is_walking = true). Current is_hand_fix_mode is " << (is_hand_fix_mode?"true":"false") << std::endl;
@@ -3390,7 +3420,9 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   i_param.leg_names.length(leg_names.size());
   for (size_t i = 0; i < leg_names.size(); i++) i_param.leg_names[i] = leg_names.at(i).c_str();
   i_param.is_hand_fix_mode = is_hand_fix_mode;
-  i_param.hand_fix_gain = hand_fix_gain;
+  i_param.hand_fix_fall_gain = hand_fix_fall_gain;
+  i_param.hand_fix_slip_gain = hand_fix_slip_gain;
+  i_param.hand_fix_slip_limit = hand_fix_slip_limit;
   i_param.end_effector_list.length(ikp.size());
   {
       size_t i = 0;
