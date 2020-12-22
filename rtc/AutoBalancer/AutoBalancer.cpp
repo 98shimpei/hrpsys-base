@@ -1985,11 +1985,12 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
       //double box_jamp_rot_angle = jamp_box_misalignment.norm() * jamp_box_amp_rot * 0.5 * (1.0 - std::cos(jamp_box_angle));
       double box_jamp_rot_angle = jamp_box_misalignment.norm() * jamp_box_amp_rot * (-std::pow((jamp_box_angle - M_PI) / M_PI, 6) + 3 * std::pow((jamp_box_angle - M_PI) / M_PI, 4) - 3 * std::pow((jamp_box_angle - M_PI) / M_PI, 2) + 1);
       //if (box_jamp_rot_angle > 0.3) box_jamp_rot_angle = 0.3;
+      hrp::Vector3 tmp_rotation_center = (ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5;
       Eigen::AngleAxisd box_jamp_rot = Eigen::AngleAxisd(box_jamp_rot_angle, box_axis.normalized());
-      ikp["rarm"].target_p0 += (box_jamp_rot * (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()));
-      ikp["larm"].target_p0 += (box_jamp_rot * (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()));
-      ikp["rarm"].target_r0 =  box_jamp_rot * ikp["rarm"].target_r0;
-      ikp["larm"].target_r0 =  box_jamp_rot * ikp["larm"].target_r0;
+      ikp["rarm"].target_p0 += (box_jamp_rot * (ikp["rarm"].target_p0 - tmp_rotation_center) - (ikp["rarm"].target_p0 - tmp_rotation_center));
+      ikp["larm"].target_p0 += (box_jamp_rot * (ikp["larm"].target_p0 - tmp_rotation_center) - (ikp["larm"].target_p0 - tmp_rotation_center));
+      ikp["rarm"].target_r0 = box_jamp_rot * ikp["rarm"].target_r0;
+      ikp["larm"].target_r0 = box_jamp_rot * ikp["larm"].target_r0;
     }
 };
 
