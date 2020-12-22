@@ -1844,10 +1844,12 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
       lRk = lRdiffk * lRrefk;
     }
 
-    ikp["rarm"].target_r0 = rRk;
-    ikp["larm"].target_r0 = lRk;
-    ikp["rarm"].target_p0 += (Rdiffk * (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()));
-    ikp["larm"].target_p0 += (Rdiffk * (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()));
+    if (st->box_control_mode) {
+      ikp["rarm"].target_r0 = rRk;
+      ikp["larm"].target_r0 = lRk;
+      ikp["rarm"].target_p0 += (Rdiffk * (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()));
+      ikp["larm"].target_p0 += (Rdiffk * (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()));
+    }
 
     //慣性力に応じて傾ける
     hrp::Vector3 acc_sum = xddk->getCurrentValue() + hrp::Vector3(0, 0, -9.8);
