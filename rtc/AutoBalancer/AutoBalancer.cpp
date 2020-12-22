@@ -2717,11 +2717,11 @@ void AutoBalancer::setBoxWeightOffset(void)
   st->setBoxWeightOffset();
 }
 
-void AutoBalancer::jampBox(double p, double a, double ar) {
+void AutoBalancer::jampBox(double p, double a, double ar, double x, double y, double z) {
   jamp_box_angle = 2.0 * M_PI - 0.0001;
   jamp_box_amp = a;
   jamp_box_amp_rot = ar;
-  jamp_box_misalignment = box_misalignment;
+  jamp_box_misalignment = hrp::Vector3(x, y, z);
   jamp_box_period = p;
 }
 

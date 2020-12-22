@@ -793,6 +793,6 @@ module OpenHRP
 
     void stopLookAtBox();
 
-    void jampBox(in double period, in double amp, in double ampr);
+    void jampBox(in double period, in double amp, in double ampr, in double x, in double y, in double z);
   };
 };

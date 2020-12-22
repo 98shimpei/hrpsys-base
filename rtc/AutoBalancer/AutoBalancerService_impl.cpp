@@ -104,9 +104,9 @@ void AutoBalancerService_impl::stopLookAtBox(void)
   m_autobalancer->stopLookAtBox();
 }
 
-void AutoBalancerService_impl::jampBox(double p, double a, double ar)
+void AutoBalancerService_impl::jampBox(double p, double a, double ar, double x, double y, double z)
 {
-  m_autobalancer->jampBox(p, a, ar);
+  m_autobalancer->jampBox(p, a, ar, x, y, z);
 }
 
 CORBA::Boolean AutoBalancerService_impl::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::GaitGeneratorParam& i_param)

@@ -130,7 +130,7 @@ class AutoBalancer
   void setBoxWeightOffset(void);
   void startLookAtBox(double gain);
   void stopLookAtBox(void);
-  void jampBox(double p, double a, double ar);
+  void jampBox(double p, double a, double ar, double x, double y, double z);
 
 
  protected:
