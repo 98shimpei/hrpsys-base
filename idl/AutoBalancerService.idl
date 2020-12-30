@@ -416,6 +416,7 @@ module OpenHRP
       double hand_fix_fall_gain;
       double hand_fix_slip_gain;
       double hand_fix_slip_limit;
+      DblArray3 hand_fix_body_gain;
       sequence<Footstep> end_effector_list;
       /// Default GaitType
       GaitType default_gait_type;

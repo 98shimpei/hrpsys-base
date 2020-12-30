@@ -381,6 +381,7 @@ class AutoBalancer
   double hand_fix_fall_gain;
   double hand_fix_slip_gain;
   double hand_fix_slip_limit;
+  hrp::Vector3 hand_fix_body_gain;
   int loop;
   bool graspless_manip_mode;
   std::string graspless_manip_arm;
@@ -433,6 +434,7 @@ class AutoBalancer
   hrp::Vector3 xrefdk_1;
   boost::shared_ptr<FirstOrderLowPassFilter<double> > w;
   boost::shared_ptr<FirstOrderLowPassFilter<double> > w2;
+  boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > w3;
   boost::shared_ptr<FirstOrderLowPassFilter<double> > limit;
   boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > xddk;
   boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > xrefddk;
