@@ -265,7 +265,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   top_box_id = 7;
   base_box_id = 8;
   head_diff.resize(2, 0);
-  box_rotation_center = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(5.0, 0.002, hrp::Vector3::Zero()));
+  box_rotation_center = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(10.0, 0.002, hrp::Vector3::Zero()));
 }
 
 void Stabilizer::execStabilizer()

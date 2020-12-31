@@ -1672,6 +1672,26 @@ void AutoBalancer::rotateRefForcesForFixCoords (coordinates& tmp_fix_coords)
       ref_moments[i] = tmp_fix_coords.rot * hrp::Vector3(m_ref_force[i].data[3], m_ref_force[i].data[4], m_ref_force[i].data[5]);
     }
     sbp_offset = tmp_fix_coords.rot * hrp::Vector3(sbp_offset);
+
+    if (st->box_control_mode) {
+      //力モーメント分配
+      double h = st->box_rotation_center->getCurrentValue()[2] - (ikp["rarm"].target_p0[2] + ikp["larm"].target_p0[2])*0.5;
+      hrp::Vector3 g_a = hrp::Vector3(0, 0, -9.8) - xddk->getCurrentValue();
+      hrp::Vector3 pz = st->box_rotation_center->getCurrentValue() + g_a * h / (- g_a[2]);
+      hrp::Vector3 pr = ikp["rarm"].target_p0;
+      hrp::Vector3 pl = ikp["larm"].target_p0;
+      double lpr = std::abs((pr[0]-pl[0])*(pr[0]-pz[0]) + (pr[1]-pl[1])*(pr[1]-pz[1]));
+      double lpl = std::abs((pr[0]-pl[0])*(pl[0]-pz[0]) + (pr[1]-pl[1])*(pl[1]-pz[1]));
+      double alpha = lpl / (lpr+lpl);
+      double box_m = -(ref_forces[2][2] + ref_forces[3][2]) / 9.8;
+      ref_forces[2][2] = 0;
+      ref_forces[3][2] = 0;
+      ref_forces[2] += alpha * box_m * g_a;
+      ref_forces[3] += (1 - alpha) * box_m * g_a;
+      ref_moments[2] += (st->box_rotation_center->getCurrentValue() - ikp["rarm"].target_p0).cross(alpha * box_m * g_a);
+      ref_moments[3] += (st->box_rotation_center->getCurrentValue() - ikp["larm"].target_p0).cross(alpha * box_m * g_a);
+    }
+
 };
 
 void AutoBalancer::updateHeadPose ()
@@ -1819,7 +1839,6 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     xk = (hrp::Vector3(1, 1, 1)-w3->getCurrentValue()).array().colwise()*(w->getCurrentValue() * xk_1 + (1 - w->getCurrentValue()) * xrefk_1).array()+(w3->getCurrentValue()).array().colwise() * center.array();
     hrp::Vector3 acc = (xk-2*xk_1+xk_2)/m_dt/m_dt;
     hrp::Vector3 unit_acc = acc / acc.norm();
-    std::cerr << acc.norm() << " " << acc.transpose() << "  " << unit_acc.transpose() << std::endl;
     if (acc.norm() > limit->getCurrentValue()) {
         xk = (1 - w2->getCurrentValue()) * xk + w2->getCurrentValue() * (2*xk_1 - xk_2 + m_dt*m_dt*limit->getCurrentValue()*unit_acc);
     }
@@ -1856,7 +1875,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
       ikp["rarm"].target_p0 += (Rdiffk * (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()));
       ikp["larm"].target_p0 += (Rdiffk * (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()));
     }
-
+    
     //慣性力に応じて傾ける
     hrp::Vector3 acc_sum = xddk->getCurrentValue() + hrp::Vector3(0, 0, -9.8);
     hrp::Vector3 acc_axis(-acc_sum(1), acc_sum(0), 0);
@@ -1940,10 +1959,10 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
       ikp["larm"].hand_pos += (hand_omega * (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()));
     }
     
-    if (st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()) {
+    if (st->box_control_mode && st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()) {
       st->box_rotation_center->passFilter(st->box_pos_camera[st->base_box_id]);
     } else {
-      st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
+      st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5;
     }
     //st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
 
