@@ -1,4 +1,4 @@
-/ -*- C++ -*-
+// -*- C++ -*-
 /*!
  * @file  AutoBalancer.cpp
  * @brief autobalancer component
@@ -288,7 +288,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_qTouchWall.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
     m_tmp.data.length(35);
-    m_shimpei.data.length(24);
+    m_shimpei.data.length(27);
     diff_q.resize(m_robot->numJoints());
     // for debug output
     m_originRefZmp.data.x = m_originRefZmp.data.y = m_originRefZmp.data.z = 0.0;
