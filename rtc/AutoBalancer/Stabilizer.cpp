@@ -2008,7 +2008,8 @@ void Stabilizer::calcSwingEEModification ()
   box_weight_buf.push_back(-(world_force["rhsensor"]->getCurrentValue() + world_force["lhsensor"]->getCurrentValue())(2) / 9.8);
   box_weight = std::accumulate(box_weight_buf.begin(), box_weight_buf.end(), 0.0) / box_weight_buf.size() - box_weight_offset;
 
-  if (box_weight > 1.0) { //box_weightが小さい時の値は信用ならない
+  //if (box_weight > 1.0) { //box_weightが小さい時の値は信用ならない
+  if (true) {
     hrp::Vector3 wr = hrp::Vector3(0, 0, world_force["rhsensor"]->getCurrentValue()(2));
     hrp::Vector3 wl = hrp::Vector3(0, 0, world_force["lhsensor"]->getCurrentValue()(2));
     //hrp::Vector3 rh_origin_moment = -world_moment["rhsensor"]->getCurrentValue() + rpos.cross(-world_force["rhsensor"]->getCurrentValue());

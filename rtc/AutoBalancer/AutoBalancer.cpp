@@ -1,4 +1,4 @@
-// -*- C++ -*-
+/ -*- C++ -*-
 /*!
  * @file  AutoBalancer.cpp
  * @brief autobalancer component
@@ -1201,6 +1201,9 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_shimpei.data[21] = rRrefk.eulerAngles(0, 1, 2)(0);
       m_shimpei.data[22] = rRrefk.eulerAngles(0, 1, 2)(1);
       m_shimpei.data[23] = rRrefk.eulerAngles(0, 1, 2)(2);
+      m_shimpei.data[24] = box_misalignment(0);
+      m_shimpei.data[25] = box_misalignment(1);
+      m_shimpei.data[26] = box_misalignment(2);
       //m_shimpei.data[18] = rddk->getCurrentValue()(0);
       //m_shimpei.data[19] = rddk->getCurrentValue()(1);
       //m_shimpei.data[20] = rddk->getCurrentValue()(2);
