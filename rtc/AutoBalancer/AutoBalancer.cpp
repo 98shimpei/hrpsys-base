@@ -288,7 +288,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_qTouchWall.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
     m_tmp.data.length(35);
-    m_shimpei.data.length(27);
+    m_shimpei.data.length(29);
     diff_q.resize(m_robot->numJoints());
     // for debug output
     m_originRefZmp.data.x = m_originRefZmp.data.y = m_originRefZmp.data.z = 0.0;
@@ -1204,6 +1204,8 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_shimpei.data[24] = box_misalignment(0);
       m_shimpei.data[25] = box_misalignment(1);
       m_shimpei.data[26] = box_misalignment(2);
+      m_shimpei.data[27] = st->hand_diff(0);
+      m_shimpei.data[28] = st->hand_diff(1);
       //m_shimpei.data[18] = rddk->getCurrentValue()(0);
       //m_shimpei.data[19] = rddk->getCurrentValue()(1);
       //m_shimpei.data[20] = rddk->getCurrentValue()(2);
