@@ -1673,25 +1673,35 @@ void AutoBalancer::rotateRefForcesForFixCoords (coordinates& tmp_fix_coords)
     }
     sbp_offset = tmp_fix_coords.rot * hrp::Vector3(sbp_offset);
 
-    if (st->box_control_mode) {
-      //力モーメント分配
-      double h = st->box_rotation_center->getCurrentValue()[2] - (ikp["rarm"].target_p0[2] + ikp["larm"].target_p0[2])*0.5;
-      hrp::Vector3 g_a = hrp::Vector3(0, 0, -9.8) - xddk->getCurrentValue();
-      hrp::Vector3 pz = st->box_rotation_center->getCurrentValue() + g_a * h / (- g_a[2]);
-      hrp::Vector3 pr = ikp["rarm"].target_p0;
-      hrp::Vector3 pl = ikp["larm"].target_p0;
-      double lpr = std::abs((pr[0]-pl[0])*(pr[0]-pz[0]) + (pr[1]-pl[1])*(pr[1]-pz[1]));
-      double lpl = std::abs((pr[0]-pl[0])*(pl[0]-pz[0]) + (pr[1]-pl[1])*(pl[1]-pz[1]));
-      double alpha = lpl / (lpr+lpl);
-      double box_m = -(ref_forces[2][2] + ref_forces[3][2]) / 9.8;
-      ref_forces[2][2] = 0;
-      ref_forces[3][2] = 0;
-      ref_forces[2] += alpha * box_m * g_a;
-      ref_forces[3] += (1 - alpha) * box_m * g_a;
-      ref_moments[2] += (st->box_rotation_center->getCurrentValue() - ikp["rarm"].target_p0).cross(alpha * box_m * g_a);
-      ref_moments[3] += (st->box_rotation_center->getCurrentValue() - ikp["larm"].target_p0).cross(alpha * box_m * g_a);
+    static double transition = 0;
+    if (st->box_control_mode && transition < 1) {
+      transition += m_dt / 1.0;
+    }else if(!st->box_control_mode && transition > 0){
+      transition -= m_dt / 1.0;
+    }
+    if (transition > 1) {
+      transition = 1;
+    }
+    if (transition < 0) {
+      transition = 0;
     }
 
+    //力モーメント分配
+    double h = st->box_rotation_center->getCurrentValue()[2] - (ikp["rarm"].target_p0[2] + ikp["larm"].target_p0[2])*0.5;
+    hrp::Vector3 g_a = hrp::Vector3(0, 0, -9.8) - transition * xddk->getCurrentValue();
+    hrp::Vector3 pz = st->box_rotation_center->getCurrentValue() + g_a * h / (- g_a[2]);
+    hrp::Vector3 pr = ikp["rarm"].target_p0;
+    hrp::Vector3 pl = ikp["larm"].target_p0;
+    double lpr = std::abs((pr[0]-pl[0])*(pr[0]-pz[0]) + (pr[1]-pl[1])*(pr[1]-pz[1]));
+    double lpl = std::abs((pr[0]-pl[0])*(pl[0]-pz[0]) + (pr[1]-pl[1])*(pl[1]-pz[1]));
+    double alpha = (1-transition) * 0.5 + transition * lpl / (lpr+lpl);
+    double box_m = -(ref_forces[2][2] + ref_forces[3][2]) / 9.8;
+    ref_forces[2][2] = 0;
+    ref_forces[3][2] = 0;
+    ref_forces[2] += alpha * box_m * g_a;
+    ref_forces[3] += (1 - alpha) * box_m * g_a;
+    ref_moments[2] += (st->box_rotation_center->getCurrentValue() - ikp["rarm"].target_p0).cross(alpha * box_m * g_a);
+    ref_moments[3] += (st->box_rotation_center->getCurrentValue() - ikp["larm"].target_p0).cross(alpha * box_m * g_a);
 };
 
 void AutoBalancer::updateHeadPose ()
@@ -1869,12 +1879,10 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
       lRk = lRdiffk * lRrefk;
     }
 
-    if (st->box_control_mode) {
-      ikp["rarm"].target_r0 = rRk;
-      ikp["larm"].target_r0 = lRk;
-      ikp["rarm"].target_p0 += (Rdiffk * (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()));
-      ikp["larm"].target_p0 += (Rdiffk * (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()));
-    }
+    ikp["rarm"].target_r0 = rRk;
+    ikp["larm"].target_r0 = lRk;
+    ikp["rarm"].target_p0 += (Rdiffk * (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 - st->box_rotation_center->getCurrentValue()));
+    ikp["larm"].target_p0 += (Rdiffk * (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 - st->box_rotation_center->getCurrentValue()));
     
     //慣性力に応じて傾ける
     hrp::Vector3 acc_sum = xddk->getCurrentValue() + hrp::Vector3(0, 0, -9.8);
@@ -1962,7 +1970,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     if (st->box_control_mode && st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()) {
       st->box_rotation_center->passFilter(st->box_pos_camera[st->base_box_id]);
     } else {
-      st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5;
+      st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
     }
     //st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
 
