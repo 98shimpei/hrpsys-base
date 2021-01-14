@@ -1960,6 +1960,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         }
       }
     } else if (!st->box_control_mode) {
+      /*
       hand_omega = st->hand_rot;
       Eigen::AngleAxisd next_rot = st->hand_rot;
       next_rot.angle() = box_recover_gain * next_rot.angle();
@@ -1970,6 +1971,10 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
       ikp["larm"].hand_pos -= tmpdiffpos;
       ikp["rarm"].hand_pos += (hand_omega * (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()));
       ikp["larm"].hand_pos += (hand_omega * (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()));
+      */
+      ikp["rarm"].hand_pos *= box_recover_gain;
+      ikp["larm"].hand_pos *= box_recover_gain;
+      st->hand_rot.angle() *= box_recover_gain;
     }
     
     if (st->box_control_mode && st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()) {
