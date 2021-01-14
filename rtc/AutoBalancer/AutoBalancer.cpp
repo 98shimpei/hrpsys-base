@@ -2016,8 +2016,10 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
       box_misalignment = hrp::Vector3::Zero();
       jamp_box_misalignment = hrp::Vector3::Zero();
     }
-    ikp["rarm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * 0.5 * (1.0 - std::cos(jamp_box_angle)));
-    ikp["larm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * 0.5 * (1.0 - std::cos(jamp_box_angle)));
+    //ikp["rarm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * 0.5 * (1.0 - std::cos(jamp_box_angle)));
+    //ikp["larm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * 0.5 * (1.0 - std::cos(jamp_box_angle)));
+    ikp["rarm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * (-std::pow((jamp_box_angle - M_PI) / M_PI, 6) + 3 * std::pow((jamp_box_angle - M_PI) / M_PI, 4) - 3 * std::pow((jamp_box_angle - M_PI) / M_PI, 2) + 1));
+    ikp["larm"].target_p0 += hrp::Vector3(0, 0, jamp_box_amp * (-std::pow((jamp_box_angle - M_PI) / M_PI, 6) + 3 * std::pow((jamp_box_angle - M_PI) / M_PI, 4) - 3 * std::pow((jamp_box_angle - M_PI) / M_PI, 2) + 1));
     hrp::Vector3 box_axis(jamp_box_misalignment(1), -jamp_box_misalignment(0), 0);
     if (jamp_box_misalignment.norm() != 0) {
       //double box_jamp_rot_angle = jamp_box_misalignment.norm() * jamp_box_amp_rot * 0.5 * (1.0 - std::cos(jamp_box_angle));
