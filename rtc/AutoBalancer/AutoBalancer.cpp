@@ -167,7 +167,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       lRrefk(hrp::Matrix33::Zero()),
       w(boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(2.0, 0.002, 0.0))),
       w2(boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(2.0, 0.002, 0.0))),
-      w3(boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(1.0, 0.002, hrp::Vector3(0, 0, 0)))),
+      w3(boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(0.5, 0.002, hrp::Vector3(0, 0, 0)))),
       limit(boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(2.0, 0.002, 0.0)))
 
 {
@@ -1975,12 +1975,20 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
       ikp["rarm"].hand_pos *= box_recover_gain;
       ikp["larm"].hand_pos *= box_recover_gain;
       st->hand_rot.angle() *= box_recover_gain;
+      box_misalignment *= box_recover_gain;
     }
     
-    if (st->box_control_mode && st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()) {
-      st->box_rotation_center->passFilter(st->box_pos_camera[st->base_box_id]);
+    static double transition = 0;
+    if (st->box_control_mode && transition < 1) {
+      transition += m_dt / 1.0;
+    }else if(!st->box_control_mode && transition > 0){
+      transition -= m_dt / 1.0;
+    }
+
+    if (st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()) {
+      st->box_rotation_center->passFilter((1 - transition) * (ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5 + transition * st->box_pos_camera[st->base_box_id]);
     } else {
-      st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
+      st->box_rotation_center->passFilter(0.99 * st->box_rotation_center->getCurrentValue() +  0.01 * (ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
     }
     //st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
 
