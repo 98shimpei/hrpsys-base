@@ -1943,11 +1943,13 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         hand_omega = Eigen::AngleAxisd(-(box_gain_function(st->hand_diff[0]) * st->box_balancer_rot_gain_p + st->hand_diff_d[0] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitY()) * Eigen::AngleAxisd((box_gain_function(st->hand_diff[1]) * st->box_balancer_rot_gain_p + st->hand_diff_d[1] * st->box_balancer_rot_gain_d), Eigen::Vector3d::UnitX());
         Eigen::AngleAxisd tmprot;
         tmprot = hand_omega * st->hand_rot;
-        if (tmprot.angle() < 0.5) {
+        if (st->box_coop_mode || tmprot.angle() < 0.5) {
           st->hand_rot = hand_omega * st->hand_rot;
-          hrp::Vector3 tmpdiffpos = 0.002 * (ikp["rarm"].hand_pos + ikp["larm"].hand_pos);
-          ikp["rarm"].hand_pos -= tmpdiffpos;
-          ikp["larm"].hand_pos -= tmpdiffpos;
+          if (!st->box_coop_mode) {
+            hrp::Vector3 tmpdiffpos = 0.002 * (ikp["rarm"].hand_pos + ikp["larm"].hand_pos);
+            ikp["rarm"].hand_pos -= tmpdiffpos;
+            ikp["larm"].hand_pos -= tmpdiffpos;
+          }
           ikp["rarm"].hand_pos += (hand_omega * (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["rarm"].target_p0 + ikp["rarm"].hand_pos - st->box_rotation_center->getCurrentValue()));
           ikp["larm"].hand_pos += (hand_omega * (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()) - (ikp["larm"].target_p0 + ikp["larm"].hand_pos - st->box_rotation_center->getCurrentValue()));
 
