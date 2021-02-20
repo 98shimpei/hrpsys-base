@@ -131,6 +131,7 @@ class AutoBalancer
   void startLookAtBox(double gain);
   void stopLookAtBox(void);
   void jampBox(double p, double a, double ar, double x, double y, double z);
+  bool box_exist(int box_num);
 
 
  protected:

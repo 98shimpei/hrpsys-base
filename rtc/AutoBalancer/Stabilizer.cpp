@@ -998,16 +998,25 @@ void Stabilizer::stopStabilizer(void)
 
 void Stabilizer::setBoxBalancer(int t_id, int b_id) {
     box_rot_camera_offset.clear();
+    box_pos_camera_offset.clear();
     top_box_id = t_id;
     base_box_id = b_id;
     for (std::map<int, hrp::Matrix33>::iterator it = box_rot_camera.begin(); it != box_rot_camera.end(); ++it) {
       box_rot_camera_offset[it->first] = box_rot_camera[it->first];
     }
-    if (box_rot_camera.find(top_box_id) != box_rot_camera.end() && box_rot_camera.find(base_box_id) != box_rot_camera.end()) {
+    for (std::map<int, hrp::Vector3>::iterator it = box_pos_camera.begin(); it != box_pos_camera.end(); ++it) {
+      box_pos_camera_offset[it->first] = box_pos_camera[it->first];
+    }
+    /*if (box_rot_camera.find(top_box_id) != box_rot_camera.end() && box_rot_camera.find(base_box_id) != box_rot_camera.end()) {
       box_local_pos = box_rot_camera[base_box_id].transpose() * (box_pos_camera[top_box_id] - box_pos_camera[base_box_id]);
     } else {
       box_local_pos = hrp::Vector3::Zero();
     }
+    if (box_rot_camera.find(8) != box_rot_camera.end() && box_rot_camera.find(9) != box_rot_camera.end()) {
+      box_local_pos8 = box_rot_camera[9].transpose() * (box_pos_camera[8] - box_pos_camera[9]);
+    } else {
+      box_local_pos8 = hrp::Vector3::Zero();
+    }*/
 }
 
 void Stabilizer::startBoxBalancer(bool coop_mode, double gain_pos, double gain_rot_p, double gain_rot_d)

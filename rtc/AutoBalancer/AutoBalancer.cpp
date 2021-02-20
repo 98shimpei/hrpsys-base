@@ -1195,12 +1195,21 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_shimpei.data[15] = xddk->getCurrentValue()(0);
       m_shimpei.data[16] = xddk->getCurrentValue()(1);
       m_shimpei.data[17] = xddk->getCurrentValue()(2);
-      m_shimpei.data[18] = rRk.eulerAngles(0, 1, 2)(0);
-      m_shimpei.data[19] = rRk.eulerAngles(0, 1, 2)(1);
-      m_shimpei.data[20] = rRk.eulerAngles(0, 1, 2)(2);
-      m_shimpei.data[21] = rRrefk.eulerAngles(0, 1, 2)(0);
-      m_shimpei.data[22] = rRrefk.eulerAngles(0, 1, 2)(1);
-      m_shimpei.data[23] = rRrefk.eulerAngles(0, 1, 2)(2);
+      //m_shimpei.data[18] = rRk.eulerAngles(0, 1, 2)(0);
+      //m_shimpei.data[19] = rRk.eulerAngles(0, 1, 2)(1);
+      //m_shimpei.data[20] = rRk.eulerAngles(0, 1, 2)(2);
+      //m_shimpei.data[21] = rRrefk.eulerAngles(0, 1, 2)(0);
+      //m_shimpei.data[22] = rRrefk.eulerAngles(0, 1, 2)(1);
+      //m_shimpei.data[23] = rRrefk.eulerAngles(0, 1, 2)(2);
+      m_shimpei.data[18] = st->world_force["rhsensor"]->getCurrentValue()(0);
+      m_shimpei.data[19] = st->world_force["rhsensor"]->getCurrentValue()(1);
+      m_shimpei.data[20] = st->world_force["rhsensor"]->getCurrentValue()(2);
+      m_shimpei.data[21] = st->world_force["lhsensor"]->getCurrentValue()(0);
+      m_shimpei.data[22] = st->world_force["lhsensor"]->getCurrentValue()(1);
+      m_shimpei.data[23] = st->world_force["lhsensor"]->getCurrentValue()(2);
+      //m_shimpei.data[18] = ref_forces[2][0];
+      //m_shimpei.data[19] = ref_forces[2][1];
+      //m_shimpei.data[20] = ref_forces[2][2];
       m_shimpei.data[24] = box_misalignment(0);
       m_shimpei.data[25] = box_misalignment(1);
       m_shimpei.data[26] = box_misalignment(2);
@@ -1691,22 +1700,22 @@ void AutoBalancer::rotateRefForcesForFixCoords (coordinates& tmp_fix_coords)
       transition = 0;
     }
 
-    //力モーメント分配
-    double h = st->box_rotation_center->getCurrentValue()[2] - (ikp["rarm"].target_p0[2] + ikp["larm"].target_p0[2])*0.5;
-    hrp::Vector3 g_a = hrp::Vector3(0, 0, -9.8) - transition * xddk->getCurrentValue();
-    hrp::Vector3 pz = st->box_rotation_center->getCurrentValue() + g_a * h / (- g_a[2]);
-    hrp::Vector3 pr = ikp["rarm"].target_p0;
-    hrp::Vector3 pl = ikp["larm"].target_p0;
-    double lpr = std::abs((pr[0]-pl[0])*(pr[0]-pz[0]) + (pr[1]-pl[1])*(pr[1]-pz[1]));
-    double lpl = std::abs((pr[0]-pl[0])*(pl[0]-pz[0]) + (pr[1]-pl[1])*(pl[1]-pz[1]));
-    double alpha = (1-transition) * 0.5 + transition * lpl / (lpr+lpl);
-    double box_m = -(ref_forces[2][2] + ref_forces[3][2]) / 9.8;
-    ref_forces[2][2] = 0;
-    ref_forces[3][2] = 0;
-    ref_forces[2] += alpha * box_m * g_a;
-    ref_forces[3] += (1 - alpha) * box_m * g_a;
-    ref_moments[2] += (st->box_rotation_center->getCurrentValue() - ikp["rarm"].target_p0).cross(alpha * box_m * g_a);
-    ref_moments[3] += (st->box_rotation_center->getCurrentValue() - ikp["larm"].target_p0).cross(alpha * box_m * g_a);
+    ////力モーメント分配
+    //double h = st->box_rotation_center->getCurrentValue()[2] - (ikp["rarm"].target_p0[2] + ikp["larm"].target_p0[2])*0.5;
+    //hrp::Vector3 g_a = hrp::Vector3(0, 0, -9.8) - transition * xddk->getCurrentValue();
+    //hrp::Vector3 pz = st->box_rotation_center->getCurrentValue() + g_a * h / (- g_a[2]);
+    //hrp::Vector3 pr = ikp["rarm"].target_p0;
+    //hrp::Vector3 pl = ikp["larm"].target_p0;
+    //double lpr = std::abs((pr[0]-pl[0])*(pr[0]-pz[0]) + (pr[1]-pl[1])*(pr[1]-pz[1]));
+    //double lpl = std::abs((pr[0]-pl[0])*(pl[0]-pz[0]) + (pr[1]-pl[1])*(pl[1]-pz[1]));
+    //double alpha = (1-transition) * 0.5 + transition * lpl / (lpr+lpl);
+    //double box_m = -(ref_forces[2][2] + ref_forces[3][2]) / 9.8;
+    //ref_forces[2][2] = 0;
+    //ref_forces[3][2] = 0;
+    //ref_forces[2] += alpha * box_m * g_a;
+    //ref_forces[3] += (1 - alpha) * box_m * g_a;
+    //ref_moments[2] += (st->box_rotation_center->getCurrentValue() - ikp["rarm"].target_p0).cross(alpha * box_m * g_a);
+    //ref_moments[3] += (st->box_rotation_center->getCurrentValue() - ikp["larm"].target_p0).cross(alpha * box_m * g_a);
 };
 
 void AutoBalancer::updateHeadPose ()
@@ -1757,6 +1766,11 @@ double box_gain_function(const double x) {
   }
   double ans = x * std::pow(coef, type);
   return ans;
+}
+
+bool AutoBalancer::box_exist(int box_num) {
+  //昔(setした時)も見えてるし今も見えてる
+  return st->box_rot_camera_offset.find(box_num) != st->box_rot_camera_offset.end() && st->box_rot_camera.find(box_num) != st->box_rot_camera.end();
 }
 
 void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords)
@@ -1839,7 +1853,12 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     xk_2 = xk_1;
     xk_1 = xk;
     xdk_1 = xdk;
-    w->passFilter(hand_fix_fall_gain);
+    if(hand_fix_fall_gain > 0){
+      w->passFilter(1.0 - (std::sqrt(9.8 / hand_fix_fall_gain) * m_dt / 3.0)); //3.0は安全係数
+    } else {
+      w->passFilter(0);
+    }
+    //w->passFilter(hand_fix_fall_gain);
     w2->passFilter(hand_fix_slip_gain);
     if (st->box_control_mode) {
       w3->passFilter(hand_fix_body_gain);
@@ -1923,8 +1942,15 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
           st->box_update_flag = false;
           //calc dest rot
           if (st->base_box_id != st->top_box_id) {
-            hrp::Vector3 box_offset_camera = st->box_rot_camera[st->base_box_id] * st->box_local_pos + st->box_pos_camera[st->base_box_id];
-            box_misalignment = st->box_pos_camera[st->top_box_id] - box_offset_camera;
+            int box_num[3] = {9, 8, 7};
+            box_misalignment = hrp::Vector3::Zero();
+            for (int i = 0; i < 2; i++) {
+              if (box_exist(box_num[i]) && box_exist(box_num[i+1])) {
+                hrp::Vector3 box_local_pos = st->box_rot_camera_offset[box_num[i]].transpose() * (st->box_pos_camera_offset[box_num[i+1]] - st->box_pos_camera_offset[box_num[i]]);
+                hrp::Vector3 box_offset_camera = st->box_rot_camera[box_num[i]] * box_local_pos + st->box_pos_camera[box_num[i]];
+                box_misalignment += st->box_pos_camera[box_num[i+1]] - box_offset_camera;
+              }
+            }
             hrp::Vector3 box_axis(box_misalignment(1), -box_misalignment(0), 0);
             double box_dest_rot_angle = box_misalignment.norm() * st->box_balancer_pos_gain;
             if (box_dest_rot_angle > 0.3) box_dest_rot_angle = 0.3;
@@ -1990,7 +2016,7 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     if (st->box_rot_camera.find(st->base_box_id) != st->box_rot_camera.end()) {
       st->box_rotation_center->passFilter((1 - transition) * (ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5 + transition * st->box_pos_camera[st->base_box_id]);
     } else {
-      st->box_rotation_center->passFilter(0.99 * st->box_rotation_center->getCurrentValue() +  0.01 * (ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
+      st->box_rotation_center->passFilter(0.99 * st->box_rotation_center->getCurrentValue() +  0.01 * ((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5 + hrp::Vector3(0, 0, hand_fix_fall_gain)));
     }
     //st->box_rotation_center->passFilter((ikp["rarm"].target_p0 + ikp["larm"].target_p0) * 0.5);
 

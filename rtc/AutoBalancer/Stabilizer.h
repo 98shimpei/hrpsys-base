@@ -180,6 +180,7 @@ public:
   std::map<int, hrp::Vector3> box_pos_camera;
   std::map<int, hrp::Matrix33> box_rot_camera;
   std::map<int, hrp::Matrix33> box_rot_camera_offset;
+  std::map<int, hrp::Vector3> box_pos_camera_offset;
   bool box_update_flag;
   double box_update_time;
   int box_update_time_count;
