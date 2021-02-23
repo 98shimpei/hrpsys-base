@@ -355,6 +355,7 @@ namespace rats
       void update_refzmp ();
       // setter
       void set_indices (const size_t idx) { refzmp_index = idx; };
+      void set_one_step_count (const size_t d_cnt) { one_step_count += d_cnt; };
       void set_refzmp_count(const size_t _refzmp_count) { refzmp_count = _refzmp_count; };
       void set_default_zmp_offsets(const std::vector<hrp::Vector3>& tmp) { default_zmp_offsets = tmp; };
       void set_toe_zmp_offset_x (const double _off) { toe_zmp_offset_x = _off; };
@@ -727,7 +728,7 @@ namespace rats
       // Index for current footstep. footstep_index should be [0,footstep_node_list.size()]. Current footstep is footstep_node_list[footstep_index].
       size_t footstep_index;
       // one_step_count is total counter num of current steps (= step_time/dt). lcg_count is counter for lcg. During one step, lcg_count decreases from one_step_count to 0.
-      size_t lcg_count, one_step_count, next_one_step_count;
+      size_t lcg_count, one_step_count, next_one_step_count, swing_rot_count_ratio;
       // Current support leg
       std::vector<leg_type> support_leg_types, swing_leg_types;
       orbit_type default_orbit_type;
@@ -777,7 +778,7 @@ namespace rats
           default_step_height(0.05), default_top_ratio(0.5), current_step_height(0.0), swing_ratio(0), dt(_dt),
           current_toe_angle(0), current_heel_angle(0),
           time_offset(0.35), final_distance_weight(1.0), time_offset_xy2z(0),
-          footstep_index(0), lcg_count(0), default_orbit_type(CYCLOID),
+          footstep_index(0), lcg_count(0), swing_rot_count_ratio(0.1), default_orbit_type(CYCLOID),
           rdtg(), cdtg(),
           thp(), use_act_states(true),
           foot_midcoords_interpolator(NULL), swing_foot_rot_interpolator(), toe_heel_interpolator(NULL),
@@ -1065,6 +1066,11 @@ namespace rats
     double zmp_delay_time_const, overwritable_max_time, fg_zmp_cutoff_freq;
     hrp::Vector3 fxy;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > cp_filter;
+    double debug_orig_height, debug_landing_height_xrange[2], debug_landing_height;
+    bool debug_set_landing_height;
+    Eigen::Vector2d front_edge_offset_of_steppable_region;
+    bool is_slow_stair_mode;
+    double stair_step_time;
 #ifndef HAVE_MAIN
   private:
 #endif
@@ -1124,9 +1130,11 @@ namespace rats
     hrp::Vector3 rel_landing_pos, end_cog, end_cogvel;
     int cur_supporting_foot, fx_count, fy_count;
     bool is_vision_updated, lr_region[2];
+    bool changed_step_time_stair;
     std::vector<Eigen::Vector2d> stride_limitation_polygon;
     hrp::Vector3 dc_foot_rpy, dc_landing_pos, orig_current_foot_rpy, vel_foot_offset, rel_landing_height, rel_landing_normal;
     std::vector<std::vector<std::vector<hrp::Vector2> > > steppable_region;
+    std::vector<std::vector<std::vector<hrp::Vector2> > > debug_current_steppable_region;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > fx_filter;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > zmp_filter;
     boost::shared_ptr<interpolator> double_support_zmp_interpolator;
@@ -1183,13 +1191,14 @@ namespace rats
         dt(_dt), all_limbs(_all_limbs), default_step_time(1.0), default_double_support_ratio_before(0.1), default_double_support_ratio_after(0.1), default_double_support_static_ratio_before(0.0), default_double_support_static_ratio_after(0.0), default_double_support_ratio_swing_before(0.1), default_double_support_ratio_swing_after(0.1), gravitational_acceleration(DEFAULT_GRAVITATIONAL_ACCELERATION),
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1), is_emergency_step(false),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6), act_vel_ratio(1.0), use_disturbance_compensation(false), dc_gain(1e-4),
-        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false), dcm_offset(0.0), rel_landing_pos(hrp::Vector3::Zero()), cur_supporting_foot(0), is_vision_updated(false), rel_landing_height(hrp::Vector3::Zero()), rel_landing_normal(hrp::Vector3::UnitZ()), zmp_delay_time_const(0.0), is_inverse_double_phase(false), overwritable_max_time(2.0), fg_zmp_cutoff_freq(1e6), is_emergency_touch_wall(false), end_cog(hrp::Vector3::Zero()), end_cogvel(hrp::Vector3::Zero()), sum_d_footstep_plus(hrp::Vector3::Zero()), sum_d_footstep_minus(hrp::Vector3::Zero()), footstep_hist_max(hrp::Vector3::Zero()), footstep_hist_min(hrp::Vector3::Zero()), is_stuck(false), is_interpolate_zmp_in_double(true), is_stable_go_stop_mode(false), use_flywheel_balance(false),
-        preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false), updated_vel_footsteps(false), min_time_mgn(0.2), min_time(0.5), flywheel_tau(hrp::Vector3::Zero()), falling_direction(0), dc_foot_rpy(hrp::Vector3::Zero()), dc_landing_pos(hrp::Vector3::Zero()), sum_fx(hrp::Vector3::Zero()), sum_fy(hrp::Vector3::Zero()), des_fxy(hrp::Vector3::Zero()), fx_count(0), fy_count(0) {
+        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false), dcm_offset(0.0), rel_landing_pos(hrp::Vector3::Zero()), cur_supporting_foot(0), is_vision_updated(false), rel_landing_height(hrp::Vector3::Zero()), rel_landing_normal(hrp::Vector3::UnitZ()), zmp_delay_time_const(0.0), is_inverse_double_phase(false), overwritable_max_time(2.0), fg_zmp_cutoff_freq(1e6), is_emergency_touch_wall(false), end_cog(hrp::Vector3::Zero()), end_cogvel(hrp::Vector3::Zero()), sum_d_footstep_plus(hrp::Vector3::Zero()), sum_d_footstep_minus(hrp::Vector3::Zero()), footstep_hist_max(hrp::Vector3::Zero()), footstep_hist_min(hrp::Vector3::Zero()), is_stuck(false), is_interpolate_zmp_in_double(true), is_stable_go_stop_mode(false), use_flywheel_balance(false), stair_step_time(0.5), is_slow_stair_mode(false), changed_step_time_stair(false),
+        preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false), updated_vel_footsteps(false), min_time_mgn(0.2), min_time(0.5), flywheel_tau(hrp::Vector3::Zero()), falling_direction(0), dc_foot_rpy(hrp::Vector3::Zero()), dc_landing_pos(hrp::Vector3::Zero()), sum_fx(hrp::Vector3::Zero()), sum_fy(hrp::Vector3::Zero()), des_fxy(hrp::Vector3::Zero()), fx_count(0), fy_count(0), debug_set_landing_height(false), debug_landing_height(0.0), front_edge_offset_of_steppable_region(Eigen::Vector2d::Zero()) {
         swing_foot_zmp_offsets.assign (1, hrp::Vector3::Zero());
         prev_que_sfzos.assign (1, hrp::Vector3::Zero());
         leg_type_map = boost::assign::map_list_of<leg_type, std::string>(RLEG, "rleg")(LLEG, "lleg")(RARM, "rarm")(LARM, "larm").convert_to_container < std::map<leg_type, std::string> > ();
         stride_limitation_polygon.resize(4);
         steppable_region.resize(2);
+        debug_current_steppable_region.resize(2);
         for (size_t i = 0; i < 4; i++) leg_margin[i] = 0.1;
         for (size_t i = 0; i < 4; i++) safe_leg_margin[i] = 0.1;
         for (size_t i = 0; i < 5; i++) stride_limitation_for_circle_type[i] = 0.2;
@@ -1197,6 +1206,7 @@ namespace rats
         for (size_t i = 0; i < 2; i++) is_emergency_walking[i] = false;
         for (size_t i = 0; i < 2; i++) cp_check_margin[i] = 0.025;
         for (size_t i = 0; i < 3; i++) emergency_step_time[i] = 0.8;
+        for (size_t i = 0; i < 2; i++) debug_landing_height_xrange[i] = 0.0;
         sum_d_footstep_thre = hrp::Vector3(0.5, 0.5, 0.0);
         footstep_check_delta = hrp::Vector3(0.03, 0.03, 0.0);
         cp_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(1e6, _dt, hrp::Vector3::Zero()));
@@ -1518,7 +1528,7 @@ namespace rats
     bool calc_closest_boundary_point (Eigen::Vector2d& p, const std::vector<Eigen::Vector2d>& ch, size_t& right_idx, size_t& left_idx) {
       size_t n_ch = ch.size();
       Eigen::Vector2d cur_closest_point;
-      for (size_t i; i < n_ch; i++) {
+      for (size_t i = 0; i < n_ch; i++) {
         switch(calcProjectedPoint(cur_closest_point, p, ch[left_idx], ch[right_idx])) {
         case MIDDLE:
           p = cur_closest_point;
@@ -1960,6 +1970,9 @@ namespace rats
     double get_dc_gain () { return dc_gain; };
     double get_dcm_offset () { return dcm_offset; };
     double get_tmp (const size_t idx) {return tmp[idx];}
+    double get_current_landing_pos (const size_t idx) {
+      return footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos(idx);
+    }
     double get_emergency_step_time (const size_t idx) const { return emergency_step_time[idx]; };
     void get_sum_d_footstep_thre (hrp::Vector3& thre) { thre = sum_d_footstep_thre; };
     void get_footstep_check_delta (hrp::Vector3& delta) { delta = footstep_check_delta; };
@@ -1972,6 +1985,22 @@ namespace rats
       vel = end_cogvel;
       l_r = cur_supporting_foot;
     };
+    void get_current_steppable_region (OpenHRP::TimedSteppableRegion& _region) {
+      leg_type cur_sup = footstep_nodes_list[lcg.get_footstep_index()-1].front().l_r;
+      if (lcg.get_footstep_index() > 0 && lr_region[cur_sup]) {
+        _region.data.l_r = (cur_sup == RLEG ? 0 : 1);
+        hrp::Vector3 preprev_fs_pos = (lcg.get_footstep_index()==1 ? lcg.get_swing_leg_src_steps().front() : footstep_nodes_list[lcg.get_footstep_index()-2].front()).worldcoords.pos;
+        _region.data.region.length(steppable_region[cur_sup].size());
+        for (size_t i = 0; i < steppable_region[cur_sup].size(); i++) {
+          _region.data.region[i].length(steppable_region[cur_sup][i].size()*2);
+          for (size_t j = 0; j < steppable_region[cur_sup][i].size(); j++) {
+            _region.data.region[i][2*j] = steppable_region[cur_sup][i][j](0) + preprev_fs_pos(0);
+            _region.data.region[i][2*j+1] = steppable_region[cur_sup][i][j](1) + preprev_fs_pos(1);
+          }
+        }
+      }
+    };
+
 
 #ifdef FOR_TESTGAITGENERATOR
     size_t get_one_step_count() const { return lcg.get_one_step_count(); };

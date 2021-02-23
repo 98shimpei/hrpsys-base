@@ -71,7 +71,7 @@ public:
     // For swing ee modification
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > target_ee_diff_p_filter;
     hrp::Vector3 target_ee_diff_p, d_pos_swing, d_rpy_swing, prev_d_pos_swing, prev_d_rpy_swing;
-    double remain_time;
+    double touchoff_remain_time;
     // IK parameter
     double avoid_gain, reference_gain, max_limb_length, limb_length_margin;
     size_t ik_loop_count;
@@ -126,7 +126,7 @@ public:
   double eefm_k1[2], eefm_k2[2], eefm_k3[2], eefm_zmp_delay_time_const[2], eefm_body_attitude_control_gain[2], eefm_body_attitude_control_time_const[2];
   double eefm_pos_time_const_swing, eefm_pos_transition_time, eefm_pos_margin_time, eefm_gravitational_acceleration;
   std::vector<double> eefm_swing_damping_force_thre, eefm_swing_damping_moment_thre;
-  hrp::Vector3 new_refzmp, rel_cog, ref_zmp_aux, diff_foot_origin_ext_moment;
+  hrp::Vector3 new_refzmp, after_walking_refzmp, rel_cog, ref_zmp_aux, diff_foot_origin_ext_moment;
   hrp::Vector3 pos_ctrl;
   hrp::Vector3 ref_total_force, ref_total_moment;
   // Total foot moment around the foot origin coords (relative to foot origin coords)
@@ -156,6 +156,8 @@ public:
   // joint servo control
   OpenHRP::RobotHardwareService::JointControlMode joint_control_mode;
   RTC::CorbaConsumer<OpenHRP::RobotHardwareService> m_robotHardwareService0;
+  bool is_reset_torque, is_after_walking;
+  interpolator *after_walking_interpolator;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),
