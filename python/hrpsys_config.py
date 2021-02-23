@@ -968,6 +968,7 @@ class HrpsysConfigurator(object):
             self.connectLoggerPort(self.abc, 'controlSwingSupportTime')
             self.connectLoggerPort(self.abc, 'cogOut')
             self.connectLoggerPort(self.abc, 'tmp')
+            self.connectLoggerPort(self.abc, 'currentLandingPos')
             self.connectLoggerPort(self.abc, 'allEEComp')
             self.connectLoggerPort(self.abc, 'shimpei')
             self.connectLoggerPort(self.abc, 'originRefZmp')

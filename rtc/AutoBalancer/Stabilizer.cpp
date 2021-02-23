@@ -73,7 +73,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
     ikp.eefm_swing_pos_spring_gain = hrp::Vector3(0.0, 0.0, 0.0);
     ikp.eefm_swing_pos_time_const = hrp::Vector3(1.5, 1.5, 1.5);
     ikp.eefm_ee_moment_limit = hrp::Vector3(1e4, 1e4, 1e4); // Default limit [Nm] is too large. Same as no limit.
-    ikp.remain_time = 0.0;
+    ikp.touchoff_remain_time = 0.0;
     if (ikp.ee_name.find("leg") == std::string::npos) { // Arm default
       ikp.eefm_ee_forcemoment_distribution_weight = Eigen::Matrix<double, 6,1>::Zero();
     } else { // Leg default
@@ -127,7 +127,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   st_abc_transition_interpolator = new interpolator(1, dt, interpolator::HOFFARBIB, 1);
   transition_interpolator->setName(std::string(print_str)+" transition_interpolator");
   st_abc_transition_interpolator->setName(std::string(print_str)+" st_abc_transition_interpolator");
-  is_foot_touch.resize(stikp.size(), false);
+  is_foot_touch.resize(stikp.size(), true);
   touchdown_d_pos.resize(stikp.size(), hrp::Vector3::Zero());
   touchdown_d_rpy.resize(stikp.size(), hrp::Vector3::Zero());
   prev_ref_zmp = hrp::Vector3::Zero();
@@ -141,6 +141,10 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   support_phase_min_time = 0.1;
   support2swing_transition_time = 0.05;
   use_force_sensor = true;
+  is_reset_torque = false;
+  is_after_walking = false;
+  after_walking_interpolator = new interpolator(1, dt, interpolator::HOFFARBIB, 1);
+  after_walking_interpolator->setName(std::string(print_str)+" after_walking_interpolator");
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -278,6 +282,16 @@ void Stabilizer::execStabilizer()
     calcStateForEmergencySignal();
     switch (control_mode) {
     case MODE_IDLE:
+      if (!is_reset_torque) {
+        if ( joint_control_mode == OpenHRP::RobotHardwareService::TORQUE ) {
+          double tmp_time = 3.0;
+          m_robotHardwareService0->setServoPGainPercentageWithTime("all",100,tmp_time);
+          m_robotHardwareService0->setServoDGainPercentageWithTime("all",100,tmp_time);
+          usleep(tmp_time * 1e6);
+          m_robotHardwareService0->setServoTorqueGainPercentage("all",0);
+          is_reset_torque = true;
+        }
+      }
       break;
     case MODE_AIR:
       if ( transition_count == 0 && on_ground ) sync_2_st();
@@ -574,6 +588,24 @@ void Stabilizer::getActualParametersForST ()
         new_refzmp(i) += eefm_k1[i] * transition_smooth_gain * dcog(i) + eefm_k2[i] * transition_smooth_gain * dcogvel(i) + eefm_k3[i] * transition_smooth_gain * dzmp(i) + ref_zmp_aux(i);
       }
     }
+    if (is_walking) {
+      is_after_walking = true;
+      if (!after_walking_interpolator->isEmpty()) after_walking_interpolator->clear();
+      after_walking_refzmp = new_refzmp;
+    } else {
+      if (is_after_walking) {
+        double tmp_ratio = 1.0;
+        after_walking_interpolator->set(&tmp_ratio);
+        tmp_ratio = 0.0;
+        after_walking_interpolator->setGoal(&tmp_ratio, 0.01, true);
+        is_after_walking = false;
+      }
+      if (!after_walking_interpolator->isEmpty()) {
+        double tmp_ratio;
+        after_walking_interpolator->get(&tmp_ratio, true);
+        new_refzmp = tmp_ratio * after_walking_refzmp + (1.0 - tmp_ratio) * new_refzmp;
+      }
+    }
     if (DEBUGP) {
       // All state variables are foot_origin coords relative
       std::cerr << "[" << print_str << "] state values" << std::endl;
@@ -727,7 +759,7 @@ void Stabilizer::getActualParametersForST ()
           //   Basically Equation (16) and (17) in the paper [1]
           hrp::Vector3 tmp_damping_gain;
           for (size_t j = 0; j < 3; ++j) {
-            double tmp_damping = ikp.eefm_rot_damping_gain(j) * (is_single_walking ? 1.0 : 2.0);
+            double tmp_damping = ikp.eefm_rot_damping_gain(j) * (is_single_walking ? 1.0 : 4.0);
             if (!eefm_use_swing_damping || !large_swing_m_diff[j]) tmp_damping_gain(j) = (1-transition_smooth_gain) * tmp_damping * 10 + transition_smooth_gain * tmp_damping;
             else tmp_damping_gain(j) = (1-transition_smooth_gain) * eefm_swing_rot_damping_gain(j) * 10 + transition_smooth_gain * eefm_swing_rot_damping_gain(j);
           }
@@ -780,7 +812,7 @@ void Stabilizer::getActualParametersForST ()
           pos_ctrl = calcDampingControl (ref_f_diff, f_diff, pos_ctrl,
                                          tmp_damping_gain, stikp[0].eefm_pos_time_const_support);
         } else {
-          hrp::Vector3 tmp_damping = stikp[0].eefm_pos_damping_gain * (is_single_walking ? 1.0 : 2.0);
+          hrp::Vector3 tmp_damping = stikp[0].eefm_pos_damping_gain * (is_single_walking ? 1.0 : 4.0);
           if ( (ref_contact_states[contact_states_index_map["rleg"]] && ref_contact_states[contact_states_index_map["lleg"]]) // Reference : double support phase
                || (act_contact_states[0] && act_contact_states[1]) ) { // Actual : double support phase
             // Temporarily use first pos damping gain (stikp[0])
@@ -887,6 +919,8 @@ void Stabilizer::sync_2_st ()
   pdr = hrp::Vector3::Zero();
   pos_ctrl = hrp::Vector3::Zero();
   prev_ref_foot_origin_rot = hrp::Matrix33::Identity();
+  is_after_walking = false;
+  if (!after_walking_interpolator->isEmpty()) after_walking_interpolator->clear();
   for (size_t i = 0; i < stikp.size(); i++) {
     STIKParam& ikp = stikp[i];
     ikp.target_ee_diff_p = hrp::Vector3::Zero();
@@ -900,7 +934,7 @@ void Stabilizer::sync_2_st ()
     ikp.d_foot_pos = ikp.ee_d_foot_pos = ikp.d_foot_rpy = ikp.ee_d_foot_rpy = hrp::Vector3::Zero();
     ikp.omega.angle() = 0.0;
     swing_modification_interpolator[ikp.ee_name]->clear();
-    is_foot_touch[i] = false;
+    is_foot_touch[i] = true;
   }
   if (on_ground) {
     transition_count = -1 * calcMaxTransitionCount();
@@ -966,6 +1000,7 @@ void Stabilizer::startStabilizer(void)
               m_robotHardwareService0->setServoDGainPercentageWithTime(jpe->joint(j)->name.c_str(),ikp.support_dgain(j),3);
           }
       }
+      is_reset_torque = false;
   }
   std::cerr << "[" << print_str << "] " << "Start ST DONE"  << std::endl;
 }
@@ -979,6 +1014,7 @@ void Stabilizer::stopStabilizer(void)
       m_robotHardwareService0->setServoDGainPercentageWithTime("all",100,tmp_time);
       usleep(tmp_time * 1e6);
       m_robotHardwareService0->setServoTorqueGainPercentage("all",0);
+      is_reset_torque = true;
   }
   {
     Guard guard(m_mutex);
@@ -1943,7 +1979,8 @@ void Stabilizer::calcSwingEEModification ()
         //interpolator---補完関数
         swing_modification_interpolator[stikp[i].ee_name]->set(&tmp_ratio);
         tmp_ratio = 0.0;
-        swing_modification_interpolator[stikp[i].ee_name]->setGoal(&tmp_ratio, stikp[i].remain_time/*接触状態が変わるまでの残り時間(夕客に為るまでの時間)*/, true);
+        //swing_modification_interpolator[stikp[i].ee_name]->setGoal(&tmp_ratio, stikp[i].remain_time/*接触状態が変わるまでの残り時間(夕客に為るまでの時間)*/, true);
+        swing_modification_interpolator[stikp[i].ee_name]->setGoal(&tmp_ratio, stikp[i].touchoff_remain_time, true);
         is_foot_touch[i] = true;
       }
     } else if (swing_modification_interpolator[stikp[i].ee_name]->isEmpty()) {
@@ -1987,7 +2024,7 @@ void Stabilizer::calcSwingEEModification ()
     if (!swing_modification_interpolator[stikp[i].ee_name]->isEmpty()) {
       //補かん中
       double tmp_ratio = 0.0;
-      swing_modification_interpolator[stikp[i].ee_name]->setGoal(&tmp_ratio, stikp[i].remain_time, true);
+      swing_modification_interpolator[stikp[i].ee_name]->setGoal(&tmp_ratio, stikp[i].touchoff_remain_time, true);
       swing_modification_interpolator[stikp[i].ee_name]->get(&tmp_ratio, true);
       stikp[i].d_pos_swing = touchdown_d_pos[i] * tmp_ratio;//touchdown_d_pos修正量
       stikp[i].d_rpy_swing = touchdown_d_rpy[i] * tmp_ratio;

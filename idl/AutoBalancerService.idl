@@ -339,6 +339,13 @@ module OpenHRP
       /// whether gostop after becoming stable
       boolean is_stable_go_stop_mode;
       boolean use_flywheel_balance;
+      boolean debug_set_landing_height;
+      double debug_landing_height;
+      DblArray2 debug_landing_height_xrange;
+      // (x, y) [m]
+      DblArray2 front_edge_offset_of_steppable_region;
+      boolean is_slow_stair_mode;
+      double stair_step_time;
     };
 
     /**
@@ -449,6 +456,7 @@ module OpenHRP
       boolean is_natural_walk;
       boolean is_stop_early_foot;
       double arm_swing_deg;
+      boolean debug_read_steppable_region;
     };
 
     /**

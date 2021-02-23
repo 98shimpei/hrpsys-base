@@ -109,6 +109,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_baseTformOut("baseTformOut", m_baseTform),
       m_tmpOut("tmp", m_tmp),
       m_shimpeiOut("shimpei", m_shimpei),
+      m_currentLandingPosOut("currentLandingPos", m_currentLandingPos),
       m_diffFootOriginExtMomentOut("diffFootOriginExtMoment", m_diffFootOriginExtMoment),
       m_basePoseOut("basePoseOut", m_basePose),
       m_accRefOut("accRef", m_accRef),
@@ -131,6 +132,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_originActZmpOut("originActZmp", m_originActZmp),
       m_originActCogOut("originActCog", m_originActCog),
       m_originActCogVelOut("originActCogVel", m_originActCogVel),
+      m_currentSteppableRegionOut("currentSteppableRegion", m_currentSteppableRegion),
       // </rtc-template>
       gait_type(BIPED),
       m_robot(hrp::BodyPtr()),
@@ -222,6 +224,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("baseTformOut", m_baseTformOut);
     addOutPort("tmpOut", m_tmpOut);
     addOutPort("shimpei", m_shimpeiOut);
+    addOutPort("currentLandingPosOut", m_currentLandingPosOut);
     addOutPort("diffStaticBalancePointOffset", m_diffFootOriginExtMomentOut);
     addOutPort("allEEComp", m_allEECompOut);
     addOutPort("basePoseOut", m_basePoseOut);
@@ -247,6 +250,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("originActZmp", m_originActZmpOut);
     addOutPort("originActCog", m_originActCogOut);
     addOutPort("originActCogVel", m_originActCogVelOut);
+    addOutPort("currentSteppableRegion", m_currentSteppableRegionOut);
 
     // Set service provider to Ports
     m_AutoBalancerServicePort.registerProvider("service0", "AutoBalancerService", m_service0);
@@ -298,6 +302,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_originActZmp.data.x = m_originActZmp.data.y = m_originActZmp.data.z = 0.0;
     m_originActCog.data.x = m_originActCog.data.y = m_originActCog.data.z = 0.0;
     m_originActCogVel.data.x = m_originActCogVel.data.y = m_originActCogVel.data.z = 0.0;
+    m_currentSteppableRegion.data.region.length(1);
+    m_currentSteppableRegion.data.region[0].length(1);
 
     control_mode = MODE_IDLE;
     loop = 0;
@@ -514,6 +520,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     cog_constraint_interpolator->setName(std::string(m_profile.instance_name)+" cog_constraint_interpolator");
     limit_cog_interpolator = new interpolator(3, m_dt, interpolator::CUBICSPLINE);
     limit_cog_interpolator->setName(std::string(m_profile.instance_name)+" limit_cog_interpolator");
+    hand_fix_interpolator = new interpolator(3, m_dt, interpolator::CUBICSPLINE);
+    hand_fix_interpolator->setName(std::string(m_profile.instance_name)+" hand_fix_interpolator");
 
     // setting stride limitations from conf file
     double stride_fwd_x_limit = 0.15;
@@ -632,6 +640,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     is_after_walking = false;
     prev_roll_state = prev_pitch_state = false;
     prev_orig_cog = orig_cog = hrp::Vector3::Zero();
+    prev_orig_dif_p = orig_dif_p = hrp::Vector3::Zero();
 
     is_emergency_step_mode = false;
     is_emergency_touch_wall_mode = false;
@@ -644,6 +653,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     cog_z_constraint = 1e-3;
     arm_swing_deg = 30.0;
+
+    debug_read_steppable_region = false;
 
     hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
     if (sen == NULL) {
@@ -672,6 +683,8 @@ RTC::ReturnCode_t AutoBalancer::onFinalize()
   delete go_vel_interpolator;
   delete cog_constraint_interpolator;
   delete limit_cog_interpolator;
+  delete hand_fix_interpolator;
+  delete st->after_walking_interpolator;
   for ( std::map<std::string, interpolator*>::iterator it = touchdown_transition_interpolator.begin(); it != touchdown_transition_interpolator.end(); it++ ) {
     delete it->second;
   }
@@ -1224,6 +1237,17 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_shimpei.tm = m_qRef.tm;
       m_shimpeiOut.write();
       
+      if (gg_is_walking) {
+        m_currentLandingPos.data.x = gg->get_current_landing_pos(0);
+        m_currentLandingPos.data.y = gg->get_current_landing_pos(1);
+        m_currentLandingPos.data.z = gg->get_current_landing_pos(2);
+      } else {
+        m_currentLandingPos.data.x = 0.0;
+        m_currentLandingPos.data.y = 0.0;
+        m_currentLandingPos.data.z = 0.0;
+      }
+      m_currentLandingPos.tm = m_qRef.tm;
+      m_currentLandingPosOut.write();
       for (size_t i = 0; i < st->stikp.size(); i++) {
         for (size_t j = 0; j < 3; j++) {
           m_allEEComp.data[6*i+j] = st->stikp[i].d_pos_swing(j);
@@ -1334,6 +1358,11 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     m_actCP.data.x = st->rel_act_cp(0); m_actCP.data.y = st->rel_act_cp(1); m_actCP.data.z = st->rel_act_cp(2);
     for (size_t i = 0; i < m_actContactStates.data.length(); i++) m_actContactStates.data[i] = st->act_contact_states[i];
     for (size_t i = 0; i < m_COPInfo.data.length(); i++) m_COPInfo.data[i] = st->copInfo[i];
+    if (debug_read_steppable_region && gg_is_walking) {
+      gg->get_current_steppable_region(m_currentSteppableRegion);
+      m_currentSteppableRegion.tm = m_qRef.tm;
+      m_currentSteppableRegionOut.write();
+    }
     m_originRefZmp.tm = m_qRef.tm;
     m_originRefZmpOut.write();
     m_originRefCog.tm = m_qRef.tm;
@@ -1487,6 +1516,8 @@ void AutoBalancer::getTargetParameters()
     calculateOutputRefForces ();
     // TODO : see explanation in this function
     calcReferenceJointAnglesForIK();
+
+    calcTouchoffRemainTime();
 
     // Calculate ZMP, COG, and sbp targets
     hrp::Vector3 tmp_ref_cog(m_robot->calcCM());
@@ -1831,19 +1862,29 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             ikp.at("rarm").shimpei_vec = p - dp;
             dp = p;
             
+            prev_orig_dif_p = orig_dif_p;
+            orig_dif_p = dif_p;
         }
-    } else if (!limit_cog_interpolator->isEmpty()) {
-      for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
-        if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
-             && it->first.find("arm") != std::string::npos ) {
-          it->second.target_p0 = it->second.target_p0 - limited_dif_cog;
-        }
-      }
     } else if (is_after_walking) {
+      std::vector<double> start_pos(3), start_vel(3), goal_pos(3);
+      double tmp_time = 5.0;
+      for (size_t i = 0; i < 3; i++) {
+        start_pos[i] = orig_dif_p(i);
+        start_vel[i] = (orig_dif_p(i) - prev_orig_dif_p(i)) / m_dt;
+        goal_pos[i] = 0.0;
+      }
+      hand_fix_interpolator->set(start_pos.data(), start_vel.data());
+      hand_fix_interpolator->setGoal(goal_pos.data(), tmp_time, true);
+    }
+    if (!hand_fix_interpolator->isEmpty()) {
+      std::vector<double> tmp_v(3);
+      hand_fix_interpolator->get(tmp_v.data(), true);
       for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
              && it->first.find("arm") != std::string::npos ) {
-          it->second.target_p0 = it->second.handfix_target_p0;
+          for (size_t i = 0; i < 3; i++) {
+            it->second.target_p0(i) = it->second.target_p0(i) + tmp_v[i];
+          }
         }
       }
     }
@@ -2220,17 +2261,28 @@ void AutoBalancer::fixLegToCoords2 (coordinates& tmp_fix_coords)
     fixLegToCoords(tmp_fix_coords.pos, tmp_fix_coords.rot);
 }
 
-void AutoBalancer::stopFootForEarlyTouchDown ()
+// assume biped walking
+void AutoBalancer::calcTouchoffRemainTime()
 {
-  double remain_time = 0.0;
   bool is_last_double = (gg->get_footstep_index() == gg->get_step_num() - 1);
   for (size_t i = 0; i < 2; i++) {
     if (gg_is_walking) {
-      remain_time = gg->get_remain_count() * m_dt + (m_contactStates.data[i == 0 ? 1 : 0] &&
+      touchoff_remain_time[i] = gg->get_remain_count() * m_dt + (m_contactStates.data[i == 0 ? 1 : 0] &&
                                                      ((gg->is_before_step_phase() && gg->get_cur_leg() != i && (!is_last_double || (is_last_double && gg->get_remain_count() == 1))) ||
                                                       ((!m_contactStates.data[i] || !gg->is_before_step_phase()) && gg->get_cur_leg() == i && !is_last_double)) ?
                                                      gg->get_default_step_time() + m_dt : 0);
-      if (st->stikp.size() > i) st->stikp[i].remain_time = remain_time;
+      if (st->stikp.size() > i) st->stikp[i].touchoff_remain_time = touchoff_remain_time[i];
+    } else {
+      touchoff_remain_time[i] = 0.0;
+    }
+  }
+}
+
+void AutoBalancer::stopFootForEarlyTouchDown ()
+{
+  bool is_last_double = (gg->get_footstep_index() == gg->get_step_num() - 1);
+  for (size_t i = 0; i < 2; i++) {
+    if (gg_is_walking) {
       if (gg->get_footstep_index() > 0 && !is_last_double && st->act_contact_states[contact_states_index_map[leg_names[i]]]) {
         if (!is_foot_touch[i] && !gg->is_before_step_phase()) {
           double tmp_ratio = 1.0;
@@ -2238,14 +2290,14 @@ void AutoBalancer::stopFootForEarlyTouchDown ()
           touchdown_transition_interpolator[leg_names[i]]->set(&tmp_ratio);
           ikp[leg_names[i]].target_p0 = touchdown_foot_pos[i];
           tmp_ratio = 0.0;
-          touchdown_transition_interpolator[leg_names[i]]->setGoal(&tmp_ratio, remain_time, true);
+          touchdown_transition_interpolator[leg_names[i]]->setGoal(&tmp_ratio, touchoff_remain_time[i], true);
           is_foot_touch[i] = true;
         }
       }
     }
     if (!touchdown_transition_interpolator[leg_names[i]]->isEmpty()) {
       double tmp_ratio = 0.0;
-      touchdown_transition_interpolator[leg_names[i]]->setGoal(&tmp_ratio, remain_time, true);
+      touchdown_transition_interpolator[leg_names[i]]->setGoal(&tmp_ratio, touchoff_remain_time[i], true);
       touchdown_transition_interpolator[leg_names[i]]->get(&tmp_ratio, true);
       ikp[leg_names[i]].target_p0 = touchdown_foot_pos[i] * tmp_ratio + ikp[leg_names[i]].target_p0 * (1.0 - tmp_ratio);
     } else {
@@ -2343,7 +2395,7 @@ void AutoBalancer::solveFullbodyIK ()
     }
     if (ikp.size() >= 4) {
       if (ikp["rarm"].is_active || ikp["larm"].is_active) {
-        double tmp_const = (ikp["rarm"].is_active ? 1e-2 : 1e-8) * transition_interpolator_ratio;
+        double tmp_const = (ikp["rarm"].is_active ? 1e-1 : 1e-8) * transition_interpolator_ratio;
         IKConstraint tmp;
         tmp.target_link_name = ikp["rarm"].target_link->name;
         tmp.localPos = ikp["rarm"].localPos;
@@ -2354,7 +2406,7 @@ void AutoBalancer::solveFullbodyIK ()
         ik_tgt_list.push_back(tmp);
       }
       if (ikp["rarm"].is_active || ikp["larm"].is_active) {
-        double tmp_const = (ikp["larm"].is_active ? 1e-2 : 1e-8) * transition_interpolator_ratio;
+        double tmp_const = (ikp["larm"].is_active ? 1e-1 : 1e-8) * transition_interpolator_ratio;
         IKConstraint tmp;
         tmp.target_link_name = ikp["larm"].target_link->name;
         tmp.localPos = ikp["larm"].localPos;
@@ -2446,7 +2498,7 @@ void AutoBalancer::solveFullbodyIK ()
         // 上半身関節角のq_refへの緩い拘束
         double upper_weight, fly_ratio = 0.0, normal_ratio = 2e-6;
         if (is_natural_walk) normal_ratio = 1e-5;
-        if (ikp.size() >= 4 && (ikp["rarm"].is_active || ikp["larm"].is_active)) normal_ratio = 1e-6;
+        if (ikp.size() >= 4 && (ikp["rarm"].is_active || ikp["larm"].is_active)) normal_ratio = 0.0; //1e-6
         if (gg->get_use_roll_flywheel() || gg->get_use_pitch_flywheel()) {
           if (!prev_roll_state && !prev_pitch_state) {
             if (angular_momentum_interpolator->isEmpty()) upper_weight = normal_ratio;
@@ -2552,14 +2604,16 @@ void AutoBalancer::limit_cog (hrp::Vector3& cog)
     is_after_walking = false;
   }
   if (!limit_cog_interpolator->isEmpty()) {
-    limited_dif_cog = cog;
     std::vector<double> tmp_v(3);
+    double tmp_time = limit_cog_interpolator->get_remain_time();
+    for (size_t i = 0; i < 3; i++) {
+      tmp_v[i] = cog(i);
+    }
+    limit_cog_interpolator->setGoal(tmp_v.data(), tmp_time, true);
     limit_cog_interpolator->get(tmp_v.data(), true);
     for (size_t i = 0; i < 3; i++) {
       cog(i) = tmp_v[i];
     }
-    limited_dif_cog -= cog;
-    limited_dif_cog(2) = 0.0;
   }
 }
 
@@ -2623,12 +2677,14 @@ void AutoBalancer::startABCparam(const OpenHRP::AutoBalancerService::StrSequence
   prev_ref_zmp = ref_zmp;
   prev_roll_state = false;
   prev_pitch_state = false;
+  prev_orig_dif_p = hrp::Vector3::Zero();
   gg->set_is_emergency_step(false);
   angular_momentum_interpolator->clear();
   roll_weight_interpolator->clear();
   pitch_weight_interpolator->clear();
   limit_cog_interpolator->clear();
   fik->resetCollision();
+  hand_fix_interpolator->clear();
   for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
     it->second.is_active = false;
   }
@@ -2682,6 +2738,10 @@ bool AutoBalancer::startWalking ()
     std::cerr << "[" << m_profile.instance_name << "] Cannot start walking without MODE_ABC. Please startAutoBalancer." << std::endl;
     return false;
   }
+  if ( gg->use_act_states && st->control_mode != Stabilizer::MODE_ST ) {
+    std::cerr << "[" << m_profile.instance_name << "] Cannot start walking without MODE_ST. Please startStabilizer." << std::endl;
+    return false;
+  }
   hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
   act_cog.head(2) += sbp_cog_offset.head(2);
   hrp::Vector3 act_cogvel = st->ref_foot_origin_rot * st->act_cogvel;
@@ -2731,6 +2791,12 @@ void AutoBalancer::stopWalking ()
 bool AutoBalancer::startAutoBalancer (const OpenHRP::AutoBalancerService::StrSequence& limbs)
 {
   if (control_mode == MODE_IDLE) {
+    if (gg_is_walking) {
+      // std::cerr << "[" << m_profile.instance_name << "] goStop before startAutoBalancer because gg_is_walking is true" << std::endl;
+      // goStop();
+      std::cerr << "[" << m_profile.instance_name << "] Cannot startAutobalancer while gg_is_waking is true. Please goStop or wait for ending previous goPos." << std::endl;
+      return false;
+    }
     fik->resetIKFailParam();
     startABCparam(limbs);
     waitABCTransition();
@@ -3157,6 +3223,16 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->cp_filter->setCutOffFreq(i_param.fg_cp_cutoff_freq);
   gg->set_sum_d_footstep_thre(hrp::Vector3(i_param.sum_d_footstep_thre[0], i_param.sum_d_footstep_thre[1], i_param.sum_d_footstep_thre[2]));
   gg->set_footstep_check_delta(hrp::Vector3(i_param.footstep_check_delta[0], i_param.footstep_check_delta[1], i_param.footstep_check_delta[2]));
+  gg->debug_set_landing_height = i_param.debug_set_landing_height;
+  gg->debug_landing_height = i_param.debug_landing_height;
+  for (size_t i = 0; i < 2; i++) {
+    gg->debug_landing_height_xrange[i] = i_param.debug_landing_height_xrange[i];
+  }
+  for (size_t i = 0; i < 2; i++) {
+    gg->front_edge_offset_of_steppable_region[i] = i_param.front_edge_offset_of_steppable_region[i];
+  }
+  gg->is_slow_stair_mode = i_param.is_slow_stair_mode;
+  gg->stair_step_time = i_param.stair_step_time;
 
   // print
   gg->print_param(std::string(m_profile.instance_name));
@@ -3280,6 +3356,16 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
       i_param.footstep_check_delta[i] = delta(i);
     }
   }
+  i_param.debug_set_landing_height = gg->debug_set_landing_height;
+  i_param.debug_landing_height = gg->debug_landing_height;
+  for (size_t i = 0; i < 2; i++) {
+    i_param.debug_landing_height_xrange[i] = gg->debug_landing_height_xrange[i];
+  }
+  for (size_t i = 0; i < 2; i++) {
+    i_param.front_edge_offset_of_steppable_region[i] = gg->front_edge_offset_of_steppable_region[i];
+  }
+  i_param.is_slow_stair_mode = gg->is_slow_stair_mode;
+  i_param.stair_step_time = gg->stair_step_time;
   return true;
 };
 
@@ -3458,6 +3544,7 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   is_natural_walk = i_param.is_natural_walk;
   is_stop_early_foot = i_param.is_stop_early_foot;
   arm_swing_deg = i_param.arm_swing_deg;
+  debug_read_steppable_region = i_param.debug_read_steppable_region;
   return true;
 };
 
@@ -3554,6 +3641,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   i_param.is_natural_walk = is_natural_walk;
   i_param.is_stop_early_foot = is_stop_early_foot;
   i_param.arm_swing_deg = arm_swing_deg;
+  i_param.debug_read_steppable_region = debug_read_steppable_region;
   return true;
 };
 

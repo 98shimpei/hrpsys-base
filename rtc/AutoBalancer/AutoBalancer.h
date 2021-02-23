@@ -208,6 +208,8 @@ class AutoBalancer
   OutPort<TimedDoubleSeq> m_tmpOut;
   TimedDoubleSeq m_shimpei;
   OutPort<TimedDoubleSeq> m_shimpeiOut;
+  TimedPoint3D m_currentLandingPos;
+  OutPort<TimedPoint3D> m_currentLandingPosOut;
   TimedPoint3D m_diffFootOriginExtMoment;
   OutPort<TimedPoint3D> m_diffFootOriginExtMomentOut;
   TimedDoubleSeq m_allEEComp;
@@ -258,6 +260,8 @@ class AutoBalancer
   OutPort<TimedPoint3D> m_cogOut;
   OutPort<TimedPoint3D> m_originRefZmpOut, m_originRefCogOut, m_originRefCogVelOut, m_originNewZmpOut;
   OutPort<TimedPoint3D> m_originActZmpOut, m_originActCogOut, m_originActCogVelOut;
+  OpenHRP::TimedSteppableRegion m_currentSteppableRegion;
+  OutPort<OpenHRP::TimedSteppableRegion> m_currentSteppableRegionOut;
 
   
   // </rtc-template>
@@ -329,6 +333,7 @@ class AutoBalancer
   void limit_cog (hrp::Vector3& cog);
   bool vlimit(double& ret, const double llimit_value, const double ulimit_value);
   void stopFootForEarlyTouchDown();
+  void calcTouchoffRemainTime();
   void limbStretchAvoidanceControl();
 
   // for gg
@@ -341,7 +346,7 @@ class AutoBalancer
   typedef boost::shared_ptr<FullbodyInverseKinematicsSolver> fikPtr;
   fikPtr fik;
   OpenHRP::AutoBalancerService::IKMode ik_mode;
-  hrp::Vector3 ref_cog, ref_zmp, rel_ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset, orig_cog, prev_orig_cog, limited_dif_cog;
+  hrp::Vector3 ref_cog, ref_zmp, rel_ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset, orig_cog, prev_orig_cog;
   enum {BIPED, TROT, PACE, CRAWL, GALLOP} gait_type;
   enum {MODE_IDLE, MODE_ABC, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_ABC} control_mode;
   std::map<std::string, ABCIKparam> ikp;
@@ -369,6 +374,7 @@ class AutoBalancer
   interpolator *go_vel_interpolator;
   interpolator *cog_constraint_interpolator;
   interpolator *limit_cog_interpolator;
+  interpolator *hand_fix_interpolator;
   hrp::Vector3 input_zmp, input_basePos, ref_basePos, baseRpy;
   hrp::Matrix33 input_baseRot, ref_baseRot;
 
@@ -386,7 +392,7 @@ class AutoBalancer
   int loop;
   bool graspless_manip_mode;
   std::string graspless_manip_arm;
-  hrp::Vector3 graspless_manip_p_gain;
+  hrp::Vector3 graspless_manip_p_gain, orig_dif_p, prev_orig_dif_p;
   rats::coordinates graspless_manip_reference_trans_coords;
 
   hrp::InvDynStateBuffer idsb;
@@ -405,6 +411,7 @@ class AutoBalancer
   interpolator *touch_wall_transition_interpolator;
   hrp::Vector3 touchdown_foot_pos[2];
   bool is_foot_touch[2];
+  double touchoff_remain_time[2];
   std::map<std::string, interpolator*> touchdown_transition_interpolator;
   bool prev_roll_state, prev_pitch_state;
   bool is_emergency_step_mode, is_emergency_touch_wall_mode, is_emergency_stopping, is_touch_wall_motion_solved, use_collision_avoidance, is_natural_walk, is_stop_early_foot;
@@ -445,6 +452,7 @@ class AutoBalancer
   hrp::Matrix33 lRk;
   hrp::Matrix33 lRk_1;
   hrp::Matrix33 lRrefk;
+  bool debug_read_steppable_region;
 };
 
 
